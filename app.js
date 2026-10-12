@@ -15,9 +15,7 @@ const deckSelect  = document.getElementById('deck-select');
 const namesOutside = document.getElementById('names-outside');
 const svgContainer = document.getElementById('svg-container');
 const downloadBtn = document.getElementById('download-btn');
-const downloadMenu = document.getElementById('download-menu');
-const downloadPdf = document.getElementById('download-pdf');
-const downloadSvg = document.getElementById('download-svg');
+const downloadTitle = downloadBtn.title;
 const shareBtn    = document.getElementById('share-btn');
 const shareMenu   = document.getElementById('share-menu');
 const shareLive   = document.getElementById('share-live');
@@ -66,7 +64,6 @@ function renderPreview() {
     currentSVG = '';
     currentDeck = '';
     downloadBtn.disabled = true;
-    downloadMenu.hidePopover?.();
     shareMenu.hidePopover?.();
     shareBtn.disabled = true;
     namesOutside.disabled = false;
@@ -88,11 +85,22 @@ function renderPreview() {
   namesOutside.disabled = pivot.faces.length < 2;
   currentDeck = deck;
   svgContainer.innerHTML = currentSVG;
-  downloadBtn.disabled = false;
+  const tooWide = printProblem(currentSVG);
+  downloadBtn.disabled = Boolean(tooWide);
+  downloadBtn.title = tooWide || downloadTitle;
   shareBtn.disabled = false;
   const offBalance = unbalanced(pivot);
   const warning = offBalance.length ? `Too many cards in: ${offBalance.join(', ')}` : '';
-  previewLabel.textContent = [deck, warning].filter(Boolean).join(' — ') || 'Preview';
+  previewLabel.textContent = [deck, warning, tooWide].filter(Boolean).join(' — ') || 'Preview';
+}
+
+function printProblem(svg) {
+  try {
+    pageFor(guideSize(svg));
+    return '';
+  } catch (error) {
+    return `The PDF can't be printed: ${error.message}`;
+  }
 }
 
 function fillDeckSelect(options) {
@@ -230,23 +238,16 @@ deckSelect.addEventListener('change', () => {
 });
 namesOutside.addEventListener('change', renderPreview);
 
-downloadSvg.addEventListener('click', () => {
-  if (!currentSVG) return;
-  triggerDownload(new Blob([currentSVG], { type: 'image/svg+xml' }), `${currentDeck || 'sideboard'}_guide.svg`);
-  downloadMenu.hidePopover?.();
-});
-
-downloadPdf.addEventListener('click', async () => {
+downloadBtn.addEventListener('click', async () => {
   if (!currentSVG) return;
   const filename = `${currentDeck || 'sideboard'}_guide.pdf`;
-  downloadPdf.disabled = true;
+  downloadBtn.disabled = true;
   try {
     triggerDownload(await createGuidePDF(currentSVG), filename);
-    downloadMenu.hidePopover?.();
   } catch (error) {
     alert(`Could not create the PDF: ${error.message}`);
   } finally {
-    downloadPdf.disabled = false;
+    downloadBtn.disabled = !currentSVG;
   }
 });
 

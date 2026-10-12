@@ -92,9 +92,13 @@ assert.deepStrictEqual(faceNames(wide), [manyOpponents.slice(0, 6), manyOpponent
 
 const single = buildPivot(parseData('md\tsb\tCard\tElves\n4\t\tIsland\t-1'), '');
 const singleSVG = generateCardSVG('', single);
-assert.match(singleSVG, /width="63mm"/);
+assert.match(singleSVG, /width="64mm"/);
 assert.match(singleSVG, />Total</);
 assert.match(generateCardSVG('DnT', single), />DnT</);
+
+const foldX = svg => [...svg.matchAll(/<line x1="(\d+)"[^>]*stroke-dasharray/g)].map(m => +m[1]);
+assert.deepStrictEqual(foldX(singleSVG), []);
+assert.deepStrictEqual(foldX(generateCardSVG('', buildPivot(parseData('md,sb,Card,A,,B,,C\n4,,Island,-1,,-1,,-1'), ''))), [640, 1280]);
 
 assert.strictEqual(sheetId('https://docs.google.com/spreadsheets/d/1Bx-i_9/edit#gid=12'), '1Bx-i_9');
 assert.strictEqual(sheetId('https://example.com/d/1Bx'), null);
