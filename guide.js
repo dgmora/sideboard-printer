@@ -200,7 +200,7 @@ function valueStyle(value) {
 
 // ─── Card Sheet ───────────────────────────────────────────────────────────────
 
-const FOLD = { font: 34, valueFont: 30, titleFont: 52, row: 46, col: 50, pad: 24, title: 64 };
+const FOLD = { font: 34, valueFont: 30, titleFont: 40, row: 46, col: 50, title: 50 };
 
 // ponytail: estimated sans-serif width, measure with getBBox if labels get clipped
 const textWidth = (s, size) => s.length * size * 0.56;
@@ -222,27 +222,35 @@ const EXAMPLE_SHEET = [
 ].map(row => row.join('\t')).join('\n');
 
 /**
- * One 63 × 88 mm card face, or two side by side on a 126 × 88 mm sheet to fold
- * in the middle. Both faces share the same rows. With namesOutside, the right
- * face puts card names on its right edge. An empty title leaves no title row.
+ * One 64 × 89.4 mm card face, or two side by side on a 128 × 89.4 mm sheet to
+ * fold in the middle. Both faces share the same rows, and the table stretches
+ * its rows or columns to fill each face up to a 1 mm margin. With namesOutside,
+ * the right face puts card names on its right edge. An empty title leaves no
+ * title row.
  */
 function generateCardSVG(title, { cards, faces, firstSideboard }, namesOutside = false) {
-  const { font, row, col, pad } = FOLD;
+  const { font } = FOLD;
   const rowLabels = [...cards.map(c => c.label), 'Total'];
+  const maxColumns = Math.max(...faces.map(f => f.length));
   const nameW   = Math.max(...rowLabels.map(l => textWidth(l, font))) + 16;
   const headerH = Math.max(...faces.flat().map(o => textWidth(o.name, font))) + 16;
   const titleW  = title ? textWidth(title, FOLD.titleFont) : 0;
-  const faceW   = pad * 2 + Math.max(titleW, nameW + Math.max(...faces.map(f => f.length)) * col);
-  const tableY  = pad + (title ? FOLD.title : 0) + headerH;
-  const faceH   = tableY + (cards.length + 1) * row + pad;
+  const tableY  = (title ? FOLD.title : 0) + headerH;
+  const naturalW = Math.max(titleW, nameW + maxColumns * FOLD.col);
+  const naturalH = tableY + rowLabels.length * FOLD.row;
 
   // 10 units per mm
-  const halfW = 630, sheetH = 880, sheetW = halfW * faces.length;
-  const scale = Math.min(halfW / faceW, sheetH / faceH);
+  const halfW = 640, sheetH = 894, sheetW = halfW * faces.length, margin = 10;
+  const scale = Math.min((halfW - 2 * margin) / naturalW, (sheetH - 2 * margin) / naturalH);
+  const faceW = (halfW - 2 * margin) / scale;
+  const faceH = (sheetH - 2 * margin) / scale;
+  const row = (faceH - tableY) / rowLabels.length;
+  const col = Math.max(FOLD.col, (faceW - nameW) / maxColumns);
+  const baseline = (ri, size) => tableY + ri * row + (row + size * 0.7) / 2;
 
   const lines = [
     `<?xml version="1.0" encoding="UTF-8"?>`,
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${63 * faces.length}mm" height="88mm" viewBox="0 0 ${sheetW} ${sheetH}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${64 * faces.length}mm" height="89.4mm" viewBox="0 0 ${sheetW} ${sheetH}">`,
     `  <rect width="${sheetW}" height="${sheetH}" fill="#ffffff" stroke="#bbbbbb" stroke-width="2"/>`,
   ];
   if (faces.length > 1) {
@@ -251,8 +259,8 @@ function generateCardSVG(title, { cards, faces, firstSideboard }, namesOutside =
 
   faces.forEach((opponents, fi) => {
     const namesRight = namesOutside && fi === 1;
-    const x0 = fi * halfW + (halfW - faceW * scale) / 2;
-    const y0 = (sheetH - faceH * scale) / 2;
+    const x0 = fi * halfW + margin;
+    const y0 = margin;
     const tableW = nameW + opponents.length * col;
     const left   = (faceW - tableW) / 2;
     const colsX  = namesRight ? left : left + nameW;
@@ -261,7 +269,7 @@ function generateCardSVG(title, { cards, faces, firstSideboard }, namesOutside =
     const bottom = tableY + (cards.length + 1) * row;
 
     lines.push(`  <g transform="translate(${x0.toFixed(1)},${y0.toFixed(1)}) scale(${scale.toFixed(4)})" font-family="sans-serif">`);
-    if (title) lines.push(`    <text x="${faceW / 2}" y="${pad + FOLD.title * 0.8}" font-size="${FOLD.titleFont}" text-anchor="middle">${escapeXml(title)}</text>`);
+    if (title) lines.push(`    <text x="${faceW / 2}" y="${FOLD.title * 0.8}" font-size="${FOLD.titleFont}" text-anchor="middle">${escapeXml(title)}</text>`);
 
     opponents.forEach((opp, i) => {
       const x = colsX + i * col;
@@ -275,7 +283,7 @@ function generateCardSVG(title, { cards, faces, firstSideboard }, namesOutside =
       const thick = (ri === firstSideboard && ri > 0) || ri === cards.length;
       lines.push(`    <line x1="${left}" y1="${y}" x2="${left + tableW}" y2="${y}" stroke="rgb(40,40,40)" ` +
         `stroke-width="${thick ? 4 : 2}" stroke-opacity="${thick ? 0.8 : 0.2}"/>`);
-      lines.push(`    <text x="${nameX}" y="${y + row * 0.72}" font-size="${font}" text-anchor="${anchor}">${escapeXml(label)}</text>`);
+      lines.push(`    <text x="${nameX}" y="${baseline(ri, font)}" font-size="${font}" text-anchor="${anchor}">${escapeXml(label)}</text>`);
     });
 
     opponents.forEach((opp, i) => {
@@ -283,12 +291,12 @@ function generateCardSVG(title, { cards, faces, firstSideboard }, namesOutside =
       cards.forEach((card, ri) => {
         const value = card.values.get(opp.key);
         if (!value) return;
-        lines.push(`    <text x="${cx}" y="${tableY + ri * row + row * 0.7}" font-size="${FOLD.valueFont}" text-anchor="middle" ` +
+        lines.push(`    <text x="${cx}" y="${baseline(ri, FOLD.valueFont)}" font-size="${FOLD.valueFont}" text-anchor="middle" ` +
           `style="${valueStyle(value)}">${escapeXml(value.replace('*', ''))}</text>`);
       });
       const total = matchupTotal(cards, opp);
       const style = total > 0 ? 'font-weight:bold;fill:#C00000' : 'fill:#888888';
-      lines.push(`    <text x="${cx}" y="${tableY + cards.length * row + row * 0.7}" font-size="${FOLD.valueFont}" text-anchor="middle" ` +
+      lines.push(`    <text x="${cx}" y="${baseline(cards.length, FOLD.valueFont)}" font-size="${FOLD.valueFont}" text-anchor="middle" ` +
         `style="${style}">${total > 0 ? '+' : ''}${total}</text>`);
     });
 

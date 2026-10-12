@@ -5,10 +5,10 @@ const { EXAMPLE_SHEET, parseData, buildPivot, generateCardSVG } = require('./gui
 
 const svgFor = sheet => generateCardSVG('DnT', buildPivot(parseData(sheet), ''));
 
-assert.deepEqual(pdfPlacement(guideSize(svgFor('md,sb,Card,Elves\n4,,Island,-1'))), { x: 73.5, y: 104.5, width: 63, height: 88 });
-assert.deepEqual(pdfPlacement(guideSize(svgFor(EXAMPLE_SHEET))), { x: 42, y: 104.5, width: 126, height: 88 });
-assert.deepEqual(pdfPlacement(guideSize(svgFor('md,sb,Card,A,,B,,C\n4,,Island,-1,,-1,,-1'))), { x: 10.5, y: 104.5, width: 189, height: 88 });
-assert.throws(() => guideSize(svgFor('md,sb,Card,A,,B,,C,,D\n4,,Island,-1,,-1,,-1,,-1')), /252 mm wide and does not fit on an A4 page/);
+assert.deepEqual(pdfPlacement(guideSize(svgFor('md,sb,Card,Elves\n4,,Island,-1'))), { x: 73, y: 103.8, width: 64, height: 89.4 });
+assert.deepEqual(pdfPlacement(guideSize(svgFor(EXAMPLE_SHEET))), { x: 41, y: 103.8, width: 128, height: 89.4 });
+assert.deepEqual(pdfPlacement(guideSize(svgFor('md,sb,Card,A,,B,,C\n4,,Island,-1,,-1,,-1'))), { x: 9, y: 103.8, width: 192, height: 89.4 });
+assert.throws(() => guideSize(svgFor('md,sb,Card,A,,B,,C,,D\n4,,Island,-1,,-1,,-1,,-1')), /256 mm wide and does not fit on an A4 page/);
 
 (async () => {
   const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);

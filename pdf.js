@@ -6,7 +6,7 @@ const DPI = 600;
 const MM_TO_PT = 72 / 25.4;
 
 function guideSize(svg) {
-  const [, width, height] = svg.match(/<svg[^>]* width="(\d+)mm" height="(\d+)mm"/) ?? [];
+  const [, width, height] = svg.match(/<svg[^>]* width="([\d.]+)mm" height="([\d.]+)mm"/) ?? [];
   if (!width) throw new Error('the guide has no size in millimetres');
   if (+width > A4_MM.width) throw new Error(`the guide is ${width} mm wide and does not fit on an A4 page`);
   return { width: +width, height: +height };
@@ -20,7 +20,7 @@ function pdfPlacement({ width, height }) {
 async function renderJPEG(svg, { width, height }) {
   const pixels = { width: Math.round(width / 25.4 * DPI), height: Math.round(height / 25.4 * DPI) };
   // Sizing the SVG in pixels keeps browsers from upscaling a low-resolution bitmap
-  const sized = svg.replace(/ width="\d+mm" height="\d+mm"/, ` width="${pixels.width}" height="${pixels.height}"`);
+  const sized = svg.replace(/ width="[\d.]+mm" height="[\d.]+mm"/, ` width="${pixels.width}" height="${pixels.height}"`);
   const image = new Image();
   image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sized);
   await image.decode();
