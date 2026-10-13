@@ -18,17 +18,16 @@ Everything runs in your browser. Your spreadsheet is never sent anywhere else, a
 
 ## Local development
 
-The app is plain HTML, CSS and JavaScript at the repository root, with no build step. Serve the repository and open <http://localhost:8000/>:
+The app is plain HTML, CSS and JavaScript at the repository root, with no build step. Serve the repository with [just](https://github.com/casey/just) and open <http://localhost:8000/>:
 
 ```sh
-python3 -m http.server
+just server
 ```
 
-Run the tests with Node:
+Run the tests (needs Node):
 
 ```sh
-node guide.test.js
-node pdf.test.js
+just test
 ```
 
 Regenerate the example image above after changing how the card looks (needs `rsvg-convert`):
