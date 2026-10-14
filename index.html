@@ -58,10 +58,15 @@
           </select>
         </div>
 
-        <label>
-          <input type="checkbox" id="names-outside">
-          Folded card: names on the outer edges
-        </label>
+        <div class="control-row">
+          <label for="layout">Card names</label>
+          <select id="layout">
+            <option value="every" selected>On every face</option>
+            <option value="outside">On the outer edges when folded</option>
+            <option value="left">Once, on the left</option>
+            <option value="middle">Once, in the middle</option>
+          </select>
+        </div>
       </div>
 
       <section class="format-guide">
@@ -129,6 +134,7 @@ Write line breaks as %0A, spaces as %20, % as %25, + as %2B, &amp; as %26, # as 
           <ul class="example-notes">
             <li><b>Card size</b>: each half is card-sized, 64 × 89.4 mm, so it fits in a sleeve or deck box.</li>
             <li><b>Folding</b>: this guide has an empty column between Storm and Elves, so it prints as two halves. Fold along the dashed line. Guides with more matchups than fit at the chosen text size split on their own. Smaller ones fit on a single card.</li>
+            <li><b>Card names</b>: print them on every face, or only once to fit more matchups. Once on the left, the matchups run on over the next faces. Once in the middle, the matchups fold over the names from both sides.</li>
             <li><b>Colours</b>: red numbers are cards to take out, green ones cards to bring in. Faded italics mark optional swaps (a <b>*</b> in your sheet).</li>
             <li><b>Sideboard</b>: cards below the thick line are your sideboard. Each card shows how many copies you have.</li>
             <li><b>Total</b>: the bottom row adds up each matchup. It turns red when you bring in more cards than you take out.</li>

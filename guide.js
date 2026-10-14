@@ -228,12 +228,43 @@ const EXAMPLE_SHEET = [
 ].map(row => row.join('\t')).join('\n');
 
 /**
- * Fit a guide on 64 × 89.4 mm card faces with card names at textPt points.
- * A sheet face with more matchups than fit at that size is split evenly over
- * more faces. When the cards or the title still don't fit, the text shrinks:
- * textPt then holds the size it prints at, below the one asked for.
+ * Where the card names go:
+ *   every   – on every face, left of its matchups
+ *   outside – on every face, on the outer edge of a two-face card
+ *   left    – once, on the first face; the matchups run on over the next faces
+ *   middle  – once, on a face of their own between two flaps of matchups
  */
-function layoutCard(title, { cards, faces: sheetFaces, firstSideboard }, textPt = TEXT_SIZES_PT.medium) {
+const LAYOUTS = ['every', 'outside', 'left', 'middle'];
+
+function arrangeFaces(sheetFaces, layout, capacity) {
+  if (layout === 'left') {
+    const faces = [];
+    for (const face of sheetFaces) {
+      for (let i = 0; i < face.length;) {
+        const names = faces.length ? null : 'left';
+        faces.push({ opponents: face.slice(i, i += capacity(names)), names });
+      }
+    }
+    return faces;
+  }
+  let columns = sheetFaces.flatMap(face => splitEvenly(face, capacity(layout === 'middle' ? null : 'left')));
+  if (layout === 'middle') {
+    if (columns.length === 1) columns = splitEvenly(columns[0], Math.ceil(columns[0].length / 2));
+    const faces = columns.map(opponents => ({ opponents, names: null }));
+    faces.splice(Math.floor(faces.length / 2), 0, { opponents: [], names: 'only' });
+    return faces;
+  }
+  return columns.map((opponents, i) => ({ opponents, names: layout === 'outside' && i === 1 ? 'right' : 'left' }));
+}
+
+/**
+ * Fit a guide on 64 × 89.4 mm card faces with card names at textPt points.
+ * A sheet face with more matchups than fit at that size is spread over more
+ * faces. When the cards or the title still don't fit, the text shrinks:
+ * textPt then holds the size it prints at, below the one asked for.
+ * Faces of one continuous table hug the folds between them.
+ */
+function layoutCard(title, { cards, faces: sheetFaces, firstSideboard }, { textPt = TEXT_SIZES_PT.medium, layout = 'every' } = {}) {
   const { font } = FOLD;
   const rowLabels = [...cards.map(c => c.label), 'Total'];
   const nameW   = Math.max(...rowLabels.map(l => textWidth(l, font))) + 16;
@@ -244,10 +275,15 @@ function layoutCard(title, { cards, faces: sheetFaces, firstSideboard }, textPt 
   // 10 units per mm
   const halfW = 640, sheetH = 894, margin = 10;
   const wanted = textPt * UNITS_PER_PT / font;
-  const perFace = Math.max(1, Math.floor(((halfW - 2 * margin) / wanted - nameW) / FOLD.col));
-  const faces = sheetFaces.flatMap(face => splitEvenly(face, perFace));
-  const maxColumns = Math.max(...faces.map(f => f.length));
-  const naturalW = Math.max(titleW, nameW + maxColumns * FOLD.col);
+  const usable = (halfW - 2 * margin) / wanted;
+  const namesWidth = names => (names ? nameW : 0);
+  const capacity = names => Math.max(1, Math.floor((usable - namesWidth(names)) / FOLD.col));
+  const continuous = (layout === 'left' || layout === 'middle');
+  const faces = arrangeFaces(sheetFaces, layout, capacity).map((face, fi, all) => ({
+    ...face,
+    align: !continuous || all.length === 1 ? 'center' : fi === 0 ? 'right' : fi === all.length - 1 ? 'left' : 'center',
+  }));
+  const naturalW = Math.max(titleW, ...faces.map(f => namesWidth(f.names) + f.opponents.length * FOLD.col));
   const naturalH = tableY + rowLabels.length * FOLD.row;
   const scale = Math.min(wanted, (halfW - 2 * margin) / naturalW, (sheetH - 2 * margin) / naturalH);
 
@@ -258,20 +294,20 @@ function layoutCard(title, { cards, faces: sheetFaces, firstSideboard }, textPt 
 }
 
 /**
- * One card face, or several side by side to fold between them. Every face
- * shares the same rows, and the table stretches its rows or columns to fill
- * each face up to a 1 mm margin. With namesOutside, the second face puts card
- * names on its right edge. An empty title leaves no title row.
+ * Card faces side by side, to fold between them. Every face shares the same
+ * rows, and the table stretches its rows or columns to fill the faces up to a
+ * 1 mm margin. An empty title leaves no title row.
  */
-function generateCardSVG(layout, namesOutside = false) {
+function generateCardSVG(layout) {
   const { title, cards, faces, firstSideboard, rowLabels, nameW, headerH, tableY, halfW, sheetH, margin, scale } = layout;
   const { font } = FOLD;
-  const maxColumns = Math.max(...faces.map(f => f.length));
   const sheetW = halfW * faces.length;
   const faceW = (halfW - 2 * margin) / scale;
   const faceH = (sheetH - 2 * margin) / scale;
   const row = (faceH - tableY) / rowLabels.length;
-  const col = Math.max(FOLD.col, (faceW - nameW) / maxColumns);
+  const namesWidth = names => (names ? nameW : 0);
+  const fill = faces.filter(f => f.opponents.length).map(f => (faceW - namesWidth(f.names)) / f.opponents.length);
+  const col = Math.max(FOLD.col, Math.min(...fill));
   const baseline = (ri, size) => tableY + ri * row + (row + size * 0.7) / 2;
 
   const lines = [
@@ -283,15 +319,18 @@ function generateCardSVG(layout, namesOutside = false) {
     lines.push(`  <line x1="${fold}" y1="0" x2="${fold}" y2="${sheetH}" stroke="#bbbbbb" stroke-width="2" stroke-dasharray="12,10"/>`);
   }
 
-  faces.forEach((opponents, fi) => {
-    const namesRight = namesOutside && fi === 1;
+  faces.forEach(({ opponents, names, align }, fi) => {
     const x0 = fi * halfW + margin;
     const y0 = margin;
-    const tableW = nameW + opponents.length * col;
-    const left   = (faceW - tableW) / 2;
-    const colsX  = namesRight ? left : left + nameW;
-    const nameX  = namesRight ? colsX + opponents.length * col + 12 : colsX - 12;
-    const anchor = namesRight ? 'start' : 'end';
+    const namesW = names === 'only' ? faceW : namesWidth(names);
+    const tableW = namesW + opponents.length * col;
+    const left   = { left: 0, center: (faceW - tableW) / 2, right: faceW - tableW }[align];
+    const colsX  = names === 'right' ? left : left + namesW;
+    const [nameX, anchor] = {
+      left:  [colsX - 12, 'end'],
+      right: [colsX + opponents.length * col + 12, 'start'],
+      only:  [faceW / 2, 'middle'],
+    }[names] ?? [];
     const bottom = tableY + (cards.length + 1) * row;
 
     lines.push(`  <g transform="translate(${x0.toFixed(1)},${y0.toFixed(1)}) scale(${scale.toFixed(4)})" font-family="sans-serif">`);
@@ -309,7 +348,7 @@ function generateCardSVG(layout, namesOutside = false) {
       const thick = (ri === firstSideboard && ri > 0) || ri === cards.length;
       lines.push(`    <line x1="${left}" y1="${y}" x2="${left + tableW}" y2="${y}" stroke="rgb(40,40,40)" ` +
         `stroke-width="${thick ? 4 : 2}" stroke-opacity="${thick ? 0.8 : 0.2}"/>`);
-      lines.push(`    <text x="${nameX}" y="${baseline(ri, font)}" font-size="${font}" text-anchor="${anchor}">${escapeXml(label)}</text>`);
+      if (names) lines.push(`    <text x="${nameX}" y="${baseline(ri, font)}" font-size="${font}" text-anchor="${anchor}">${escapeXml(label)}</text>`);
     });
 
     opponents.forEach((opp, i) => {
@@ -402,5 +441,5 @@ function decodePaste(text) {
 }
 
 if (typeof module === 'object') {
-  module.exports = { EXAMPLE_SHEET, TEXT_SIZES_PT, parseData, getDecks, buildPivot, unbalanced, layoutCard, generateCardSVG, sheetId, parseTabs, toMatrixCsv, decodeBase64, decodePaste };
+  module.exports = { EXAMPLE_SHEET, TEXT_SIZES_PT, LAYOUTS, parseData, getDecks, buildPivot, unbalanced, layoutCard, generateCardSVG, sheetId, parseTabs, toMatrixCsv, decodeBase64, decodePaste };
 }

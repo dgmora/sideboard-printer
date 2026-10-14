@@ -12,7 +12,7 @@ const reloadBtn  = document.getElementById('reload-btn');
 const sheetsSection = document.getElementById('sheets-section');
 const pasteSection  = document.getElementById('paste-section');
 const deckSelect  = document.getElementById('deck-select');
-const namesOutside = document.getElementById('names-outside');
+const layoutSelect = document.getElementById('layout');
 const textSize    = document.getElementById('text-size');
 const svgContainer = document.getElementById('svg-container');
 const downloadBtn = document.getElementById('download-btn');
@@ -48,10 +48,14 @@ function save(key, value) {
   try { localStorage.setItem(`sbg:${key}`, value); } catch {}
 }
 
+function cardOptions() {
+  return { textPt: TEXT_SIZES_PT[textSize.value], layout: layoutSelect.value };
+}
+
 function showExample() {
   const example = document.getElementById('example-template').content.cloneNode(true);
   example.querySelector('.example-card').innerHTML =
-    generateCardSVG(layoutCard('', buildPivot(parseData(EXAMPLE_SHEET), ''), TEXT_SIZES_PT[textSize.value]), namesOutside.checked);
+    generateCardSVG(layoutCard('', buildPivot(parseData(EXAMPLE_SHEET), ''), cardOptions()));
   svgContainer.replaceChildren(example);
 }
 
@@ -67,7 +71,6 @@ function renderPreview() {
     downloadBtn.disabled = true;
     shareMenu.hidePopover?.();
     shareBtn.disabled = true;
-    namesOutside.disabled = false;
     if ((usingSheets() ? sheetLinks : textarea).value.trim()) {
       previewLabel.textContent = 'Preview';
       svgContainer.innerHTML = `
@@ -82,9 +85,8 @@ function renderPreview() {
     return;
   }
 
-  const card  = layoutCard(deck, pivot, TEXT_SIZES_PT[textSize.value]);
-  currentSVG  = generateCardSVG(card, namesOutside.checked);
-  namesOutside.disabled = card.faces.length < 2;
+  const card  = layoutCard(deck, pivot, cardOptions());
+  currentSVG  = generateCardSVG(card);
   currentDeck = deck;
   svgContainer.innerHTML = currentSVG;
   const tooWide = printProblem(currentSVG);
@@ -239,12 +241,14 @@ deckSelect.addEventListener('change', () => {
   if (usingSheets()) loadGuide();
   else renderPreview();
 });
-namesOutside.addEventListener('change', renderPreview);
 if (load('textSize') in TEXT_SIZES_PT) textSize.value = load('textSize');
-textSize.addEventListener('change', () => {
-  save('textSize', textSize.value);
-  renderPreview();
-});
+if (LAYOUTS.includes(load('layout'))) layoutSelect.value = load('layout');
+for (const [select, key] of [[textSize, 'textSize'], [layoutSelect, 'layout']]) {
+  select.addEventListener('change', () => {
+    save(key, select.value);
+    renderPreview();
+  });
+}
 
 downloadBtn.addEventListener('click', async () => {
   if (!currentSVG) return;

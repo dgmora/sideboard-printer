@@ -89,13 +89,26 @@ const manyOpponents = Array.from({ length: 12 }, (_, i) => `Opp ${i}`);
 const wideRecords = parseData(`md\tsb\tCard\t${manyOpponents.join('\t')}\n4\t\tIsland\t-1`);
 const wide = buildPivot(wideRecords, '');
 assert.deepStrictEqual(faceNames(wide), [manyOpponents]);
-assert.deepStrictEqual(faceNames(layoutCard('', wide, 7)), [manyOpponents]);
-assert.deepStrictEqual(faceNames(layoutCard('', wide, 8)), [manyOpponents.slice(0, 6), manyOpponents.slice(6)]);
-assert.deepStrictEqual(faceNames(layoutCard('', pivot, 8)), [['Stasis', 'Elves'], ['Goblins']]);
-assert.strictEqual(layoutCard('', wide, 8).textPt, 8);
+const cardFaces = card => card.faces.map(f => [f.names, f.opponents.map(o => o.name)]);
+assert.deepStrictEqual(cardFaces(layoutCard('', wide, { textPt: 7 })), [['left', manyOpponents]]);
+assert.deepStrictEqual(cardFaces(layoutCard('', wide, { textPt: 8 })), [['left', manyOpponents.slice(0, 6)], ['left', manyOpponents.slice(6)]]);
+assert.deepStrictEqual(cardFaces(layoutCard('', pivot, { textPt: 8 })), [['left', ['Stasis', 'Elves']], ['left', ['Goblins']]]);
+assert.strictEqual(layoutCard('', wide, { textPt: 8 }).textPt, 8);
+assert.deepStrictEqual(cardFaces(layoutCard('', wide, { textPt: 8, layout: 'outside' })), [['left', manyOpponents.slice(0, 6)], ['right', manyOpponents.slice(6)]]);
+
+const twenty = Array.from({ length: 20 }, (_, i) => `Opp ${i}`);
+const twentyWide = buildPivot(parseData(`md,sb,Card,${twenty.join(',')}\n4,,Island,-1`), '');
+assert.deepStrictEqual(cardFaces(layoutCard('', twentyWide, { textPt: 8, layout: 'left' })), [['left', twenty.slice(0, 11)], [null, twenty.slice(11)]]);
+assert.deepStrictEqual(cardFaces(layoutCard('', twentyWide, { textPt: 8, layout: 'middle' })), [[null, twenty.slice(0, 10)], ['only', []], [null, twenty.slice(10)]]);
+assert.deepStrictEqual(layoutCard('', twentyWide, { textPt: 8, layout: 'middle' }).faces.map(f => f.align), ['right', 'center', 'left']);
+for (const layout of ['left', 'middle']) {
+  assert.strictEqual(generateCardSVG(layoutCard('', twentyWide, { textPt: 8, layout })).match(/>4 Island</g).length, 1);
+}
+assert.deepStrictEqual(cardFaces(layoutCard('', wide, { layout: 'middle' })), [[null, manyOpponents.slice(0, 6)], ['only', []], [null, manyOpponents.slice(6)]]);
+assert.deepStrictEqual(cardFaces(layoutCard('', pivot, { layout: 'left' })), [['left', ['Stasis', 'Elves']], [null, ['Goblins']]]);
 
 const manyCards = Array.from({ length: 30 }, (_, i) => `4,,Card ${i},-1`);
-assert.ok(layoutCard('', buildPivot(parseData(['md,sb,Card,Elves', ...manyCards].join('\n')), ''), 8).textPt < 6);
+assert.ok(layoutCard('', buildPivot(parseData(['md,sb,Card,Elves', ...manyCards].join('\n')), ''), { textPt: 8 }).textPt < 6);
 
 const single = buildPivot(parseData('md\tsb\tCard\tElves\n4\t\tIsland\t-1'), '');
 const singleSVG = generateCardSVG(layoutCard('', single));
