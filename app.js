@@ -12,12 +12,11 @@ const reloadBtn  = document.getElementById('reload-btn');
 const sheetsSection = document.getElementById('sheets-section');
 const pasteSection  = document.getElementById('paste-section');
 const deckSelect  = document.getElementById('deck-select');
-const namesOutside = document.getElementById('names-outside');
+const layoutSelect = document.getElementById('layout');
+const textSize    = document.getElementById('text-size');
 const svgContainer = document.getElementById('svg-container');
 const downloadBtn = document.getElementById('download-btn');
-const downloadMenu = document.getElementById('download-menu');
-const downloadPdf = document.getElementById('download-pdf');
-const downloadSvg = document.getElementById('download-svg');
+const downloadTitle = downloadBtn.title;
 const shareBtn    = document.getElementById('share-btn');
 const shareMenu   = document.getElementById('share-menu');
 const shareLive   = document.getElementById('share-live');
@@ -49,10 +48,14 @@ function save(key, value) {
   try { localStorage.setItem(`sbg:${key}`, value); } catch {}
 }
 
+function cardOptions() {
+  return { textPt: TEXT_SIZES_PT[textSize.value], layout: layoutSelect.value };
+}
+
 function showExample() {
   const example = document.getElementById('example-template').content.cloneNode(true);
   example.querySelector('.example-card').innerHTML =
-    generateCardSVG('', buildPivot(parseData(EXAMPLE_SHEET), ''), namesOutside.checked);
+    generateCardSVG(layoutCard('', buildPivot(parseData(EXAMPLE_SHEET), ''), cardOptions()));
   svgContainer.replaceChildren(example);
 }
 
@@ -66,10 +69,8 @@ function renderPreview() {
     currentSVG = '';
     currentDeck = '';
     downloadBtn.disabled = true;
-    downloadMenu.hidePopover?.();
     shareMenu.hidePopover?.();
     shareBtn.disabled = true;
-    namesOutside.disabled = false;
     if ((usingSheets() ? sheetLinks : textarea).value.trim()) {
       previewLabel.textContent = 'Preview';
       svgContainer.innerHTML = `
@@ -84,15 +85,31 @@ function renderPreview() {
     return;
   }
 
-  currentSVG  = generateCardSVG(deck, pivot, namesOutside.checked);
-  namesOutside.disabled = pivot.faces.length < 2;
+  const card  = layoutCard(deck, pivot, cardOptions());
+  currentSVG  = generateCardSVG(card);
   currentDeck = deck;
   svgContainer.innerHTML = currentSVG;
-  downloadBtn.disabled = false;
+  const tooWide = printProblem(currentSVG);
+  downloadBtn.disabled = Boolean(tooWide);
+  downloadBtn.title = tooWide || downloadTitle;
   shareBtn.disabled = false;
   const offBalance = unbalanced(pivot);
   const warning = offBalance.length ? `Too many cards in: ${offBalance.join(', ')}` : '';
-  previewLabel.textContent = [deck, warning].filter(Boolean).join(' — ') || 'Preview';
+  const shrunk = card.textPt < TEXT_SIZES_PT[textSize.value] ? `Text shrunk to ${card.textPt.toFixed(1)} pt to fit` : '';
+  previewLabel.textContent = [deck, warning, shrunk, tooWide].filter(Boolean).join(' — ') || 'Preview';
+}
+
+function printProblem(svg) {
+  try {
+    pageFor(guideSize(svg));
+    return '';
+  } catch (error) {
+    const tips = [
+      textSize.value !== 'small' && 'smaller text',
+      layoutSelect.value !== 'left' && 'card names once, on the left',
+    ].filter(Boolean);
+    return `The PDF can't be printed: ${error.message}.` + (tips.length ? ` Try ${tips.join(' or ')}.` : '');
+  }
 }
 
 function fillDeckSelect(options) {
@@ -228,31 +245,31 @@ deckSelect.addEventListener('change', () => {
   if (usingSheets()) loadGuide();
   else renderPreview();
 });
-namesOutside.addEventListener('change', renderPreview);
+textSize.value = [shared.get('size'), load('textSize')].find(size => size in TEXT_SIZES_PT) ?? textSize.value;
+layoutSelect.value = [shared.get('names'), load('layout')].find(layout => LAYOUTS.includes(layout)) ?? layoutSelect.value;
+for (const [select, key] of [[textSize, 'textSize'], [layoutSelect, 'layout']]) {
+  select.addEventListener('change', () => {
+    save(key, select.value);
+    renderPreview();
+  });
+}
 
-downloadSvg.addEventListener('click', () => {
-  if (!currentSVG) return;
-  triggerDownload(new Blob([currentSVG], { type: 'image/svg+xml' }), `${currentDeck || 'sideboard'}_guide.svg`);
-  downloadMenu.hidePopover?.();
-});
-
-downloadPdf.addEventListener('click', async () => {
+downloadBtn.addEventListener('click', async () => {
   if (!currentSVG) return;
   const filename = `${currentDeck || 'sideboard'}_guide.pdf`;
-  downloadPdf.disabled = true;
+  downloadBtn.disabled = true;
   try {
     triggerDownload(await createGuidePDF(currentSVG), filename);
-    downloadMenu.hidePopover?.();
   } catch (error) {
     alert(`Could not create the PDF: ${error.message}`);
   } finally {
-    downloadPdf.disabled = false;
+    downloadBtn.disabled = !currentSVG;
   }
 });
 
 function pageLink(params) {
   const url = new URL(location.pathname, location.origin);
-  url.search = new URLSearchParams(params).toString().replaceAll('%2C', ',');
+  url.search = new URLSearchParams({ ...params, size: textSize.value, names: layoutSelect.value }).toString().replaceAll('%2C', ',');
   return url.href;
 }
 

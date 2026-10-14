@@ -1,8 +1,8 @@
 // Regenerates img/example_guide.png. Needs rsvg-convert (brew install librsvg).
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
-const { EXAMPLE_SHEET, parseData, buildPivot, generateCardSVG } = require('../guide.js');
+const { EXAMPLE_SHEET, parseData, buildPivot, layoutCard, generateCardSVG } = require('../guide.js');
 
-const svg = generateCardSVG('Death and Taxes', buildPivot(parseData(EXAMPLE_SHEET), ''));
+const svg = generateCardSVG(layoutCard('Death and Taxes', buildPivot(parseData(EXAMPLE_SHEET), '')));
 const output = path.join(__dirname, '..', 'img', 'example_guide.png');
 execFileSync('rsvg-convert', ['-w', '1260', '-o', output], { input: svg });
