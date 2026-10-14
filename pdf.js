@@ -2,7 +2,9 @@
 // The PDF is written by hand so the page loads no library. The guide goes in as
 // a 600 dpi image because the fonts every PDF viewer has can't show non-Latin names.
 // The page is as wide as A4 and as tall as Letter, so it fits either paper and no print dialog shrinks it.
-const PAGE_MM = { width: 210, height: 279.4 };
+// It turns sideways for guides too wide to stand upright.
+const PORTRAIT_MM = { width: 210, height: 279.4 };
+const LANDSCAPE_MM = { width: 279.4, height: 210 };
 const DPI = 600;
 const MM_TO_PT = 72 / 25.4;
 const RULER_MM = 100;
@@ -10,12 +12,17 @@ const RULER_MM = 100;
 function guideSize(svg) {
   const [, width, height] = svg.match(/<svg[^>]* width="([\d.]+)mm" height="([\d.]+)mm"/) ?? [];
   if (!width) throw new Error('the guide has no size in millimetres');
-  if (+width > PAGE_MM.width) throw new Error(`the guide is ${width} mm wide and does not fit on A4 or Letter paper`);
   return { width: +width, height: +height };
 }
 
-function pdfPlacement({ width, height }) {
-  return { x: (PAGE_MM.width - width) / 2, y: (PAGE_MM.height - height) / 2, width, height };
+function pageFor({ width, height }) {
+  const page = [PORTRAIT_MM, LANDSCAPE_MM].find(page => width <= page.width && height <= page.height);
+  if (!page) throw new Error(`the guide is ${width} × ${height} mm and does not fit on A4 or Letter paper`);
+  return page;
+}
+
+function pdfPlacement(page, { width, height }) {
+  return { x: (page.width - width) / 2, y: (page.height - height) / 2, width, height };
 }
 
 async function renderPixels(svg, { width, height }) {
@@ -50,9 +57,9 @@ async function deflate(bytes) {
 
 const pt = mm => +(mm * MM_TO_PT).toFixed(2);
 
-function rulerDrawing({ y, height }) {
-  const left = (PAGE_MM.width - RULER_MM) / 2;
-  const base = PAGE_MM.height - (y + height + 12);
+function rulerDrawing(page, { y, height }) {
+  const left = (page.width - RULER_MM) / 2;
+  const base = page.height - (y + height + 12);
   const tick = (mm, length) => `${pt(left + mm)} ${pt(base)} m ${pt(left + mm)} ${pt(base + length)} l`;
   const ticks = Array.from({ length: RULER_MM / 10 + 1 }, (_, i) => tick(i * 10, i % 5 ? 2 : 4));
   return [
@@ -61,14 +68,14 @@ function rulerDrawing({ y, height }) {
   ].join('\n');
 }
 
-function buildPDF(image, pixels, placement) {
+function buildPDF(image, pixels, page, placement) {
   const { x, y, width, height } = placement;
-  const draw = `q ${pt(width)} 0 0 ${pt(height)} ${pt(x)} ${pt(PAGE_MM.height - y - height)} cm /Guide Do Q\n${rulerDrawing(placement)}`;
+  const draw = `q ${pt(width)} 0 0 ${pt(height)} ${pt(x)} ${pt(page.height - y - height)} cm /Guide Do Q\n${rulerDrawing(page, placement)}`;
   const objects = [
     // PrintScaling /None makes print dialogs start at actual size instead of fit to page
     '<< /Type /Catalog /Pages 2 0 R /ViewerPreferences << /PrintScaling /None >> >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pt(PAGE_MM.width)} ${pt(PAGE_MM.height)}] /Resources << /XObject << /Guide 4 0 R >> /Font << /Helvetica 6 0 R >> >> /Contents 5 0 R >>`,
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pt(page.width)} ${pt(page.height)}] /Resources << /XObject << /Guide 4 0 R >> /Font << /Helvetica 6 0 R >> >> /Contents 5 0 R >>`,
     [`<< /Type /XObject /Subtype /Image /Width ${pixels.width} /Height ${pixels.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${image.length} >>\nstream\n`, image, '\nendstream'],
     `<< /Length ${draw.length} >>\nstream\n${draw}\nendstream`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
@@ -100,10 +107,11 @@ function buildPDF(image, pixels, placement) {
 
 async function createGuidePDF(svg) {
   const size = guideSize(svg);
+  const page = pageFor(size);
   const { image, pixels } = await renderPixels(svg, size);
-  return buildPDF(image, pixels, pdfPlacement(size));
+  return buildPDF(image, pixels, page, pdfPlacement(page, size));
 }
 
 if (typeof module === 'object') {
-  module.exports = { guideSize, pdfPlacement, buildPDF, dropAlpha, deflate };
+  module.exports = { guideSize, pageFor, pdfPlacement, buildPDF, dropAlpha, deflate };
 }
