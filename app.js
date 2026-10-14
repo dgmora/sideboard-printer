@@ -13,6 +13,7 @@ const sheetsSection = document.getElementById('sheets-section');
 const pasteSection  = document.getElementById('paste-section');
 const deckSelect  = document.getElementById('deck-select');
 const namesOutside = document.getElementById('names-outside');
+const textSize    = document.getElementById('text-size');
 const svgContainer = document.getElementById('svg-container');
 const downloadBtn = document.getElementById('download-btn');
 const downloadTitle = downloadBtn.title;
@@ -50,7 +51,7 @@ function save(key, value) {
 function showExample() {
   const example = document.getElementById('example-template').content.cloneNode(true);
   example.querySelector('.example-card').innerHTML =
-    generateCardSVG('', buildPivot(parseData(EXAMPLE_SHEET), ''), namesOutside.checked);
+    generateCardSVG(layoutCard('', buildPivot(parseData(EXAMPLE_SHEET), ''), TEXT_SIZES_PT[textSize.value]), namesOutside.checked);
   svgContainer.replaceChildren(example);
 }
 
@@ -81,8 +82,9 @@ function renderPreview() {
     return;
   }
 
-  currentSVG  = generateCardSVG(deck, pivot, namesOutside.checked);
-  namesOutside.disabled = pivot.faces.length < 2;
+  const card  = layoutCard(deck, pivot, TEXT_SIZES_PT[textSize.value]);
+  currentSVG  = generateCardSVG(card, namesOutside.checked);
+  namesOutside.disabled = card.faces.length < 2;
   currentDeck = deck;
   svgContainer.innerHTML = currentSVG;
   const tooWide = printProblem(currentSVG);
@@ -91,7 +93,8 @@ function renderPreview() {
   shareBtn.disabled = false;
   const offBalance = unbalanced(pivot);
   const warning = offBalance.length ? `Too many cards in: ${offBalance.join(', ')}` : '';
-  previewLabel.textContent = [deck, warning, tooWide].filter(Boolean).join(' — ') || 'Preview';
+  const shrunk = card.textPt < TEXT_SIZES_PT[textSize.value] ? `Text shrunk to ${card.textPt.toFixed(1)} pt to fit` : '';
+  previewLabel.textContent = [deck, warning, shrunk, tooWide].filter(Boolean).join(' — ') || 'Preview';
 }
 
 function printProblem(svg) {
@@ -237,6 +240,11 @@ deckSelect.addEventListener('change', () => {
   else renderPreview();
 });
 namesOutside.addEventListener('change', renderPreview);
+if (load('textSize') in TEXT_SIZES_PT) textSize.value = load('textSize');
+textSize.addEventListener('change', () => {
+  save('textSize', textSize.value);
+  renderPreview();
+});
 
 downloadBtn.addEventListener('click', async () => {
   if (!currentSVG) return;

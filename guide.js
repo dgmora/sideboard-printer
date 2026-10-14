@@ -128,14 +128,11 @@ function getDecks(records) {
   return decks;
 }
 
-// ponytail: fixed count, derive from the rendered text size if labels get too small
-const MAX_FACE_MATCHUPS = 10;
-
 /**
  * Build the card table for one deck:
  *   cards          – rows as { label, name, maindeck, values }, maindeck first, then
  *                    alphabetical; values maps an opponent key to its change
- *   faces          – opponents as { key, name }, split per card face
+ *   faces          – opponents as { key, name }, split where the sheet splits them
  *   firstSideboard – index of the first sideboard row, -1 if none
  * Opponents are keyed by sheet column, so two columns with the same name stay apart.
  */
@@ -150,10 +147,6 @@ function buildPivot(records, deckName) {
     const opponent = { key: opponentKey(r), name: r.opponent };
     opponents.set(opponent.key, opponent);
     (faces[r.face || 0] ||= []).push(opponent);
-  }
-  if (faces.length === 1 && opponents.size > MAX_FACE_MATCHUPS) {
-    const half = Math.ceil(opponents.size / 2);
-    faces.splice(0, 1, faces[0].slice(0, half), faces[0].slice(half));
   }
 
   const rows = new Map();
@@ -201,9 +194,22 @@ function valueStyle(value) {
 // ─── Card Sheet ───────────────────────────────────────────────────────────────
 
 const FOLD = { font: 34, valueFont: 30, titleFont: 40, row: 46, col: 50, title: 50 };
+const TEXT_SIZES_PT = { small: 6, medium: 7, large: 8 };
+const UNITS_PER_PT = 254 / 72;
 
-// ponytail: estimated sans-serif width, measure with getBBox if labels get clipped
-const textWidth = (s, size) => s.length * size * 0.56;
+let measureContext;
+function textWidth(s, size) {
+  if (typeof document !== 'object') return s.length * size * 0.56;
+  measureContext ||= document.createElement('canvas').getContext('2d');
+  measureContext.font = `${size}px sans-serif`;
+  return measureContext.measureText(s).width;
+}
+
+function splitEvenly(opponents, perFace) {
+  const count = Math.ceil(opponents.length / perFace);
+  const size = Math.ceil(opponents.length / count);
+  return Array.from({ length: count }, (_, i) => opponents.slice(i * size, (i + 1) * size));
+}
 
 const EXAMPLE_SHEET = [
   ['md', 'sb', 'Card', 'Delver', 'Burn', 'Reanimator', 'Storm', '', 'Elves', 'Lands', 'Show and Tell', 'Eldrazi'],
@@ -222,26 +228,46 @@ const EXAMPLE_SHEET = [
 ].map(row => row.join('\t')).join('\n');
 
 /**
- * One 64 × 89.4 mm card face, or two side by side on a 128 × 89.4 mm sheet to
- * fold in the middle. Both faces share the same rows, and the table stretches
- * its rows or columns to fill each face up to a 1 mm margin. With namesOutside,
- * the right face puts card names on its right edge. An empty title leaves no
- * title row.
+ * Fit a guide on 64 × 89.4 mm card faces with card names at textPt points.
+ * A sheet face with more matchups than fit at that size is split evenly over
+ * more faces. When the cards or the title still don't fit, the text shrinks:
+ * textPt then holds the size it prints at, below the one asked for.
  */
-function generateCardSVG(title, { cards, faces, firstSideboard }, namesOutside = false) {
+function layoutCard(title, { cards, faces: sheetFaces, firstSideboard }, textPt = TEXT_SIZES_PT.medium) {
   const { font } = FOLD;
   const rowLabels = [...cards.map(c => c.label), 'Total'];
-  const maxColumns = Math.max(...faces.map(f => f.length));
   const nameW   = Math.max(...rowLabels.map(l => textWidth(l, font))) + 16;
-  const headerH = Math.max(...faces.flat().map(o => textWidth(o.name, font))) + 16;
+  const headerH = Math.max(...sheetFaces.flat().map(o => textWidth(o.name, font))) + 16;
   const titleW  = title ? textWidth(title, FOLD.titleFont) : 0;
   const tableY  = (title ? FOLD.title : 0) + headerH;
-  const naturalW = Math.max(titleW, nameW + maxColumns * FOLD.col);
-  const naturalH = tableY + rowLabels.length * FOLD.row;
 
   // 10 units per mm
-  const halfW = 640, sheetH = 894, sheetW = halfW * faces.length, margin = 10;
-  const scale = Math.min((halfW - 2 * margin) / naturalW, (sheetH - 2 * margin) / naturalH);
+  const halfW = 640, sheetH = 894, margin = 10;
+  const wanted = textPt * UNITS_PER_PT / font;
+  const perFace = Math.max(1, Math.floor(((halfW - 2 * margin) / wanted - nameW) / FOLD.col));
+  const faces = sheetFaces.flatMap(face => splitEvenly(face, perFace));
+  const maxColumns = Math.max(...faces.map(f => f.length));
+  const naturalW = Math.max(titleW, nameW + maxColumns * FOLD.col);
+  const naturalH = tableY + rowLabels.length * FOLD.row;
+  const scale = Math.min(wanted, (halfW - 2 * margin) / naturalW, (sheetH - 2 * margin) / naturalH);
+
+  return {
+    title, cards, faces, firstSideboard, rowLabels, nameW, headerH, tableY, halfW, sheetH, margin, scale,
+    textPt: scale < wanted * 0.999 ? scale * font / UNITS_PER_PT : textPt,
+  };
+}
+
+/**
+ * One card face, or several side by side to fold between them. Every face
+ * shares the same rows, and the table stretches its rows or columns to fill
+ * each face up to a 1 mm margin. With namesOutside, the second face puts card
+ * names on its right edge. An empty title leaves no title row.
+ */
+function generateCardSVG(layout, namesOutside = false) {
+  const { title, cards, faces, firstSideboard, rowLabels, nameW, headerH, tableY, halfW, sheetH, margin, scale } = layout;
+  const { font } = FOLD;
+  const maxColumns = Math.max(...faces.map(f => f.length));
+  const sheetW = halfW * faces.length;
   const faceW = (halfW - 2 * margin) / scale;
   const faceH = (sheetH - 2 * margin) / scale;
   const row = (faceH - tableY) / rowLabels.length;
@@ -376,5 +402,5 @@ function decodePaste(text) {
 }
 
 if (typeof module === 'object') {
-  module.exports = { EXAMPLE_SHEET, parseData, getDecks, buildPivot, unbalanced, generateCardSVG, sheetId, parseTabs, toMatrixCsv, decodeBase64, decodePaste };
+  module.exports = { EXAMPLE_SHEET, TEXT_SIZES_PT, parseData, getDecks, buildPivot, unbalanced, layoutCard, generateCardSVG, sheetId, parseTabs, toMatrixCsv, decodeBase64, decodePaste };
 }

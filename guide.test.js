@@ -1,6 +1,6 @@
 // Run with: node guide.test.js
 const assert = require('node:assert');
-const { parseData, getDecks, buildPivot, unbalanced, generateCardSVG, sheetId, parseTabs, toMatrixCsv, decodeBase64, decodePaste } = require('./guide.js');
+const { parseData, getDecks, buildPivot, unbalanced, layoutCard, generateCardSVG, sheetId, parseTabs, toMatrixCsv, decodeBase64, decodePaste } = require('./guide.js');
 
 const faceNames = pivot => pivot.faces.map(face => face.map(o => o.name));
 const labels = pivot => pivot.cards.map(c => c.label);
@@ -88,17 +88,24 @@ assert.strictEqual(blankRowSplit.firstSideboard, 1);
 const manyOpponents = Array.from({ length: 12 }, (_, i) => `Opp ${i}`);
 const wideRecords = parseData(`md\tsb\tCard\t${manyOpponents.join('\t')}\n4\t\tIsland\t-1`);
 const wide = buildPivot(wideRecords, '');
-assert.deepStrictEqual(faceNames(wide), [manyOpponents.slice(0, 6), manyOpponents.slice(6)]);
+assert.deepStrictEqual(faceNames(wide), [manyOpponents]);
+assert.deepStrictEqual(faceNames(layoutCard('', wide, 7)), [manyOpponents]);
+assert.deepStrictEqual(faceNames(layoutCard('', wide, 8)), [manyOpponents.slice(0, 6), manyOpponents.slice(6)]);
+assert.deepStrictEqual(faceNames(layoutCard('', pivot, 8)), [['Stasis', 'Elves'], ['Goblins']]);
+assert.strictEqual(layoutCard('', wide, 8).textPt, 8);
+
+const manyCards = Array.from({ length: 30 }, (_, i) => `4,,Card ${i},-1`);
+assert.ok(layoutCard('', buildPivot(parseData(['md,sb,Card,Elves', ...manyCards].join('\n')), ''), 8).textPt < 6);
 
 const single = buildPivot(parseData('md\tsb\tCard\tElves\n4\t\tIsland\t-1'), '');
-const singleSVG = generateCardSVG('', single);
+const singleSVG = generateCardSVG(layoutCard('', single));
 assert.match(singleSVG, /width="64mm"/);
 assert.match(singleSVG, />Total</);
-assert.match(generateCardSVG('DnT', single), />DnT</);
+assert.match(generateCardSVG(layoutCard('DnT', single)), />DnT</);
 
 const foldX = svg => [...svg.matchAll(/<line x1="(\d+)"[^>]*stroke-dasharray/g)].map(m => +m[1]);
 assert.deepStrictEqual(foldX(singleSVG), []);
-assert.deepStrictEqual(foldX(generateCardSVG('', buildPivot(parseData('md,sb,Card,A,,B,,C\n4,,Island,-1,,-1,,-1'), ''))), [640, 1280]);
+assert.deepStrictEqual(foldX(generateCardSVG(layoutCard('', buildPivot(parseData('md,sb,Card,A,,B,,C\n4,,Island,-1,,-1,,-1'), '')))), [640, 1280]);
 
 assert.strictEqual(sheetId('https://docs.google.com/spreadsheets/d/1Bx-i_9/edit#gid=12'), '1Bx-i_9');
 assert.strictEqual(sheetId('https://example.com/d/1Bx'), null);

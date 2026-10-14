@@ -2,9 +2,9 @@
 const assert = require('node:assert/strict');
 const { inflateSync } = require('node:zlib');
 const { guideSize, pageFor, pdfPlacement, buildPDF, dropAlpha, deflate } = require('./pdf.js');
-const { EXAMPLE_SHEET, parseData, buildPivot, generateCardSVG } = require('./guide.js');
+const { EXAMPLE_SHEET, parseData, buildPivot, layoutCard, generateCardSVG } = require('./guide.js');
 
-const svgFor = sheet => generateCardSVG('DnT', buildPivot(parseData(sheet), ''));
+const svgFor = sheet => generateCardSVG(layoutCard('DnT', buildPivot(parseData(sheet), '')));
 const placementOf = sheet => {
   const size = guideSize(svgFor(sheet));
   const page = pageFor(size);
