@@ -253,8 +253,8 @@ function generateCardSVG(title, { cards, faces, firstSideboard }, namesOutside =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${64 * faces.length}mm" height="89.4mm" viewBox="0 0 ${sheetW} ${sheetH}">`,
     `  <rect width="${sheetW}" height="${sheetH}" fill="#ffffff" stroke="#bbbbbb" stroke-width="2"/>`,
   ];
-  if (faces.length > 1) {
-    lines.push(`  <line x1="${halfW}" y1="0" x2="${halfW}" y2="${sheetH}" stroke="#bbbbbb" stroke-width="2" stroke-dasharray="12,10"/>`);
+  for (let fold = halfW; fold < sheetW; fold += halfW) {
+    lines.push(`  <line x1="${fold}" y1="0" x2="${fold}" y2="${sheetH}" stroke="#bbbbbb" stroke-width="2" stroke-dasharray="12,10"/>`);
   }
 
   faces.forEach((opponents, fi) => {

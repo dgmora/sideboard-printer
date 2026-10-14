@@ -15,6 +15,7 @@ const deckSelect  = document.getElementById('deck-select');
 const namesOutside = document.getElementById('names-outside');
 const svgContainer = document.getElementById('svg-container');
 const downloadBtn = document.getElementById('download-btn');
+const downloadTitle = downloadBtn.title;
 const shareBtn    = document.getElementById('share-btn');
 const shareMenu   = document.getElementById('share-menu');
 const shareLive   = document.getElementById('share-live');
@@ -84,11 +85,22 @@ function renderPreview() {
   namesOutside.disabled = pivot.faces.length < 2;
   currentDeck = deck;
   svgContainer.innerHTML = currentSVG;
-  downloadBtn.disabled = false;
+  const tooWide = printProblem(currentSVG);
+  downloadBtn.disabled = Boolean(tooWide);
+  downloadBtn.title = tooWide || downloadTitle;
   shareBtn.disabled = false;
   const offBalance = unbalanced(pivot);
   const warning = offBalance.length ? `Too many cards in: ${offBalance.join(', ')}` : '';
-  previewLabel.textContent = [deck, warning].filter(Boolean).join(' — ') || 'Preview';
+  previewLabel.textContent = [deck, warning, tooWide].filter(Boolean).join(' — ') || 'Preview';
+}
+
+function printProblem(svg) {
+  try {
+    pageFor(guideSize(svg));
+    return '';
+  } catch (error) {
+    return `The PDF can't be printed: ${error.message}`;
+  }
 }
 
 function fillDeckSelect(options) {
