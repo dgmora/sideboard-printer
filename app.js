@@ -104,7 +104,11 @@ function printProblem(svg) {
     pageFor(guideSize(svg));
     return '';
   } catch (error) {
-    return `The PDF can't be printed: ${error.message}`;
+    const tips = [
+      textSize.value !== 'small' && 'smaller text',
+      layoutSelect.value !== 'left' && 'card names once, on the left',
+    ].filter(Boolean);
+    return `The PDF can't be printed: ${error.message}.` + (tips.length ? ` Try ${tips.join(' or ')}.` : '');
   }
 }
 
@@ -241,8 +245,8 @@ deckSelect.addEventListener('change', () => {
   if (usingSheets()) loadGuide();
   else renderPreview();
 });
-if (load('textSize') in TEXT_SIZES_PT) textSize.value = load('textSize');
-if (LAYOUTS.includes(load('layout'))) layoutSelect.value = load('layout');
+textSize.value = [shared.get('size'), load('textSize')].find(size => size in TEXT_SIZES_PT) ?? textSize.value;
+layoutSelect.value = [shared.get('names'), load('layout')].find(layout => LAYOUTS.includes(layout)) ?? layoutSelect.value;
 for (const [select, key] of [[textSize, 'textSize'], [layoutSelect, 'layout']]) {
   select.addEventListener('change', () => {
     save(key, select.value);
@@ -265,7 +269,7 @@ downloadBtn.addEventListener('click', async () => {
 
 function pageLink(params) {
   const url = new URL(location.pathname, location.origin);
-  url.search = new URLSearchParams(params).toString().replaceAll('%2C', ',');
+  url.search = new URLSearchParams({ ...params, size: textSize.value, names: layoutSelect.value }).toString().replaceAll('%2C', ',');
   return url.href;
 }
 
