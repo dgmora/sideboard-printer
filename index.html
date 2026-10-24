@@ -50,10 +50,24 @@
           <select id="deck-select"></select>
         </div>
 
-        <label>
-          <input type="checkbox" id="names-outside">
-          Folded card: names on the outer edges
-        </label>
+        <div class="control-row">
+          <label for="layout">Card names</label>
+          <select id="layout">
+            <option value="every" selected>On every face</option>
+            <option value="outside">On the outer edges when folded</option>
+            <option value="left">Once, on the left</option>
+            <option value="middle">Once, in the middle</option>
+          </select>
+        </div>
+
+        <div class="control-row">
+          <label for="text-size">Text size <span class="label-hint">Larger text needs more faces</span></label>
+          <select id="text-size">
+            <option value="6">Small, 6 pt</option>
+            <option value="7" selected>Medium, 7 pt</option>
+            <option value="8">Large, 8 pt</option>
+          </select>
+        </div>
       </div>
 
       <section class="format-guide">
@@ -92,21 +106,15 @@ Write line breaks as %0A, spaces as %20, % as %25, + as %2B, &amp; as %26, # as 
       <div class="preview-header">
         <span id="preview-label" class="preview-title">Preview</span>
         <div class="preview-actions">
+          <label for="preview-size">Preview size</label>
+          <select id="preview-size" aria-describedby="preview-size-description">
+            <option value="actual">Card size</option>
+            <option value="fit">Fit to browser</option>
+          </select>
+          <span id="preview-size-description" class="preview-size-description">Shows the guide at print scale. Each face is 64 × 89.4 mm (card size).</span>
           <button id="share-btn" class="btn btn-secondary" popovertarget="share-menu" disabled>Share guide…</button>
-          <button id="download-btn" class="btn btn-primary" popovertarget="download-menu" disabled>Download…</button>
+          <button id="download-btn" class="btn btn-primary" title="The guide at its real size, 64 × 89.4 mm per card. Print it on A4 or Letter paper at 100% scale." disabled>Download PDF</button>
         </div>
-      </div>
-
-      <div id="download-menu" class="menu" popover>
-        <p class="menu-title">Download this guide</p>
-        <button id="download-pdf" class="menu-option">
-          <span class="menu-option-name">PDF for printing</span>
-          <span class="menu-option-text">The guide at its real size, 63 × 88 mm per card. Print it on A4 or Letter paper at 100% scale.</span>
-        </button>
-        <button id="download-svg" class="menu-option">
-          <span class="menu-option-name">SVG</span>
-          <span class="menu-option-text">The same guide as a vector image. Print it from your browser at 100% scale, or edit it in Inkscape or Illustrator.</span>
-        </button>
       </div>
 
       <div id="share-menu" class="menu" popover>
@@ -121,7 +129,10 @@ Write line breaks as %0A, spaces as %20, % as %25, + as %2B, &amp; as %26, # as 
         </button>
       </div>
 
-      <div id="svg-container" class="svg-container"></div>
+      <div class="preview-canvas">
+        <div id="preview-notices" class="preview-notices" aria-live="polite" hidden></div>
+        <div id="svg-container" class="svg-container" data-size="actual"></div>
+      </div>
 
       <template id="example-template">
         <div class="example">
@@ -131,12 +142,13 @@ Write line breaks as %0A, spaces as %20, % as %25, + as %2B, &amp; as %26, # as 
           </div>
           <div class="example-card"></div>
           <ul class="example-notes">
-            <li><b>Card size</b>: each half is a standard 63 × 88 mm card, so it fits in a sleeve or deck box.</li>
-            <li><b>Folding</b>: this guide has an empty column between Storm and Elves, so it prints as two halves. Fold along the dashed line. Guides with more than 10 matchups split on their own. Smaller ones fit on a single card.</li>
+            <li><b>Card size</b>: each half is card-sized, 64 × 89.4 mm, so it fits in a sleeve or deck box.</li>
+            <li><b>Folding</b>: this guide has an empty column between Storm and Elves, so it prints as two halves. Fold along the dashed line. Guides with more matchups than fit at the chosen text size split on their own. Smaller ones fit on a single card.</li>
+            <li><b>Card names</b>: print them on every face, or only once to fit more matchups. Once on the left, the matchups run on over the next faces. Once in the middle, the matchups fold over the names from both sides.</li>
             <li><b>Colours</b>: red numbers are cards to take out, green ones cards to bring in. Faded italics mark optional swaps (a <b>*</b> in your sheet).</li>
             <li><b>Sideboard</b>: cards below the thick line are your sideboard. Each card shows how many copies you have.</li>
             <li><b>Total</b>: the bottom row adds up each matchup. It turns red when you bring in more cards than you take out.</li>
-            <li><b>Printing</b>: download the PDF and print it on A4 or Letter paper at 100% scale. Measure the first copy, as some printers shrink it slightly. To edit the guide, download the SVG and open it in Inkscape or Illustrator.</li>
+            <li><b>Printing</b>: download the PDF and print it on A4 or Letter paper at 100% scale. Check the first copy with the 100 mm line printed under the guide, as some printers shrink it slightly.</li>
           </ul>
         </div>
       </template>

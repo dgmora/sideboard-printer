@@ -25,7 +25,7 @@ Match the existing plain JavaScript: two-space indentation, semicolons, single-q
 
 ## Testing Guidelines
 
-Tests use Node's built-in `assert` modules and `*.test.js` filenames. Add focused assertions for changed parsing, layout, or PDF behavior; no coverage threshold is configured. Run `just test` before committing. For interface changes, also check the browser preview, shared links, and PDF output as relevant. Preserve the 63 × 88 mm card dimensions.
+Tests use Node's built-in `assert` modules and `*.test.js` filenames. Add focused assertions for changed parsing, layout, or PDF behavior; no coverage threshold is configured. Run `just test` before committing. For interface changes, also check the browser preview, shared links, and PDF output as relevant. Preserve physical card dimensions and the 100 mm print calibration line.
 
 ## Commit & Pull Request Guidelines
 

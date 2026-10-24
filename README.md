@@ -10,7 +10,7 @@ A free sideboard guide template for Magic: The Gathering and other card games. I
 
 Keep one spreadsheet with a tab per deck, named after the deck. Start from the template linked on the page, share the spreadsheet as "Anyone with the link can view" and add its link: every tab becomes a guide. Edit the sheet and the card catches up within a minute. You can also paste a sheet or CSV directly.
 
-Each half of the guide is a standard 63 × 88 mm card. Red numbers are cards to take out, green ones cards to bring in, and a `*` marks optional swaps. Guides with many matchups fold into two halves. Download the PDF and print it on A4 or Letter paper at 100% scale, or the SVG to print from your browser or edit the guide.
+Each half of the guide is card-sized, 64 × 89.4 mm. Red numbers are cards to take out, green ones cards to bring in, and a `*` marks optional swaps. Guides with many matchups fold into more card-sized faces, with the card names on every face or only once. Download the PDF and print it on A4 or Letter paper at 100% scale. A 100 mm line under the guide lets you check that the printer kept the size.
 
 Already have a guide in another format? The page has a prompt you can give an AI assistant like Claude or ChatGPT to convert it, along with your decklist.
 
