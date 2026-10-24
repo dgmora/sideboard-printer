@@ -195,6 +195,7 @@ function valueStyle(value) {
 
 const FOLD = { font: 34, valueFont: 30, titleFont: 40, row: 46, col: 50, title: 50 };
 const TEXT_SIZES_PT = { small: 6, medium: 7, large: 8 };
+const MAX_FACES = 4;
 const UNITS_PER_PT = 254 / 72;
 
 let measureContext;
@@ -269,12 +270,14 @@ function layoutCard(title, { cards, faces: sheetFaces, firstSideboard }, { textP
   const rowLabels = [...cards.map(c => c.label), 'Total'];
   const nameW   = Math.max(...rowLabels.map(l => textWidth(l, font))) + 16;
   const headerH = Math.max(...sheetFaces.flat().map(o => textWidth(o.name, font))) + 16;
+  const halfW = 640, sheetH = 894, margin = 10;
+  const wanted = textPt * UNITS_PER_PT / font;
+  const availableH = sheetH - 2 * margin;
+  if (title && (FOLD.title + headerH + rowLabels.length * FOLD.row) * wanted > availableH) title = '';
   const titleW  = title ? textWidth(title, FOLD.titleFont) : 0;
   const tableY  = (title ? FOLD.title : 0) + headerH;
 
   // 10 units per mm
-  const halfW = 640, sheetH = 894, margin = 10;
-  const wanted = textPt * UNITS_PER_PT / font;
   const usable = (halfW - 2 * margin) / wanted;
   const namesWidth = names => (names ? nameW : 0);
   const capacity = names => Math.max(1, Math.floor((usable - namesWidth(names)) / FOLD.col));
@@ -285,12 +288,25 @@ function layoutCard(title, { cards, faces: sheetFaces, firstSideboard }, { textP
   }));
   const naturalW = Math.max(titleW, ...faces.map(f => namesWidth(f.names) + f.opponents.length * FOLD.col));
   const naturalH = tableY + rowLabels.length * FOLD.row;
-  const scale = Math.min(wanted, (halfW - 2 * margin) / naturalW, (sheetH - 2 * margin) / naturalH);
+  const widthScale = (halfW - 2 * margin) / naturalW;
+  const heightScale = availableH / naturalH;
+  const scale = Math.min(wanted, widthScale, heightScale);
 
   return {
     title, cards, faces, firstSideboard, rowLabels, nameW, headerH, tableY, halfW, sheetH, margin, scale,
     textPt: scale < wanted * 0.999 ? scale * font / UNITS_PER_PT : textPt,
+    shrinkAxis: scale < wanted * 0.999 ? (heightScale <= widthScale ? 'vertically' : 'horizontally') : '',
   };
+}
+
+function maxTextPt(title, pivot, layout = 'every') {
+  let max = 1;
+  for (let tenths = 10; tenths <= 720; tenths++) {
+    const textPt = tenths / 10;
+    const card = layoutCard(title, pivot, { textPt, layout });
+    if (card.faces.length <= MAX_FACES && card.textPt >= textPt - 0.001) max = textPt;
+  }
+  return max;
 }
 
 /**
@@ -441,5 +457,5 @@ function decodePaste(text) {
 }
 
 if (typeof module === 'object') {
-  module.exports = { EXAMPLE_SHEET, TEXT_SIZES_PT, LAYOUTS, parseData, getDecks, buildPivot, unbalanced, layoutCard, generateCardSVG, sheetId, parseTabs, toMatrixCsv, decodeBase64, decodePaste };
+  module.exports = { EXAMPLE_SHEET, TEXT_SIZES_PT, LAYOUTS, parseData, getDecks, buildPivot, unbalanced, layoutCard, maxTextPt, generateCardSVG, sheetId, parseTabs, toMatrixCsv, decodeBase64, decodePaste };
 }

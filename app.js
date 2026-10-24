@@ -52,7 +52,19 @@ function save(key, value) {
 }
 
 function cardOptions() {
-  return { textPt: TEXT_SIZES_PT[textSize.value], layout: layoutSelect.value };
+  return { textPt: Number(textSize.value), layout: layoutSelect.value };
+}
+
+function updateTextSizes(title, pivot) {
+  const max = maxTextPt(title, pivot, layoutSelect.value);
+  const previous = Number(textSize.value) || preferredTextPt;
+  const sizes = Array.from({ length: Math.max(0, Math.floor(max) - 5) }, (_, i) => i + 6);
+  if (previous >= 6 && previous <= max && !sizes.includes(previous)) sizes.push(previous);
+  if (!sizes.includes(max)) sizes.push(max);
+  sizes.sort((a, b) => a - b);
+  textSize.replaceChildren(...sizes.map(size => new Option(`${size} pt`, size)));
+  textSize.value = String(Math.min(previous, max));
+  if (!textSize.value) textSize.value = String(max);
 }
 
 function showExample() {
@@ -90,6 +102,7 @@ function renderPreview() {
     return;
   }
 
+  updateTextSizes(deck, pivot);
   const card  = layoutCard(deck, pivot, cardOptions());
   currentSVG  = generateCardSVG(card);
   currentDeck = deck;
@@ -99,7 +112,7 @@ function renderPreview() {
   downloadBtn.title = tooWide || downloadTitle;
   shareBtn.disabled = false;
   previewLabel.textContent = deck || 'Preview';
-  const shrunk = card.textPt < TEXT_SIZES_PT[textSize.value] ? `Text shrunk to ${card.textPt.toFixed(1)} pt to fit.` : '';
+  const shrunk = card.textPt < Number(textSize.value) ? `Text shrunk to ${card.textPt.toFixed(1)} pt to fit ${card.shrinkAxis} in a card.` : '';
   previewNotices.replaceChildren(...[
     shrunk && ['warning', shrunk],
     tooWide && ['error', tooWide],
@@ -118,7 +131,7 @@ function printProblem(svg) {
     return '';
   } catch (error) {
     const tips = [
-      textSize.value !== 'small' && 'smaller text',
+      Number(textSize.value) > 6 && 'smaller text',
       layoutSelect.value !== 'left' && 'card names once, on the left',
     ].filter(Boolean);
     return `The PDF can't be printed: ${error.message}.` + (tips.length ? ` Try ${tips.join(' or ')}.` : '');
@@ -258,7 +271,9 @@ deckSelect.addEventListener('change', () => {
   if (usingSheets()) loadGuide();
   else renderPreview();
 });
-textSize.value = [shared.get('size'), load('textSize')].find(size => size in TEXT_SIZES_PT) ?? textSize.value;
+const savedTextSize = [shared.get('size'), load('textSize')].find(Boolean);
+const preferredTextPt = (TEXT_SIZES_PT[savedTextSize] ?? Number(savedTextSize)) || Number(textSize.value);
+textSize.value = String(preferredTextPt);
 layoutSelect.value = [shared.get('names'), load('layout')].find(layout => LAYOUTS.includes(layout)) ?? layoutSelect.value;
 previewSize.value = ['actual', 'fit'].includes(load('previewSize')) ? load('previewSize') : 'actual';
 svgContainer.dataset.size = previewSize.value;

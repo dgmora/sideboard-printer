@@ -8,6 +8,7 @@ const LANDSCAPE_MM = { width: 279.4, height: 210 };
 const DPI = 600;
 const MM_TO_PT = 72 / 25.4;
 const RULER_MM = 100;
+const CARD_FACE_WIDTH_MM = 64;
 
 function guideSize(svg) {
   const [, width, height] = svg.match(/<svg[^>]* width="([\d.]+)mm" height="([\d.]+)mm"/) ?? [];
@@ -17,7 +18,11 @@ function guideSize(svg) {
 
 function pageFor({ width, height }) {
   const page = [PORTRAIT_MM, LANDSCAPE_MM].find(page => width <= page.width && height <= page.height);
-  if (!page) throw new Error(`the guide is ${width} × ${height} mm and does not fit on A4 or Letter paper`);
+  if (!page) {
+    const faces = width / CARD_FACE_WIDTH_MM;
+    const maxFaces = Math.floor(LANDSCAPE_MM.width / CARD_FACE_WIDTH_MM);
+    throw new Error(`the guide has ${faces} card faces, but a page fits at most ${maxFaces} horizontally`);
+  }
   return page;
 }
 

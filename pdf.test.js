@@ -17,7 +17,7 @@ assert.deepEqual(placementOf('md,sb,Card,Elves\n4,,Island,-1'), { page: portrait
 assert.deepEqual(placementOf(EXAMPLE_SHEET), { page: portrait, x: 41, y: 95, width: 128, height: 89.4 });
 assert.deepEqual(placementOf('md,sb,Card,A,,B,,C\n4,,Island,-1,,-1,,-1'), { page: portrait, x: 9, y: 95, width: 192, height: 89.4 });
 assert.deepEqual(placementOf('md,sb,Card,A,,B,,C,,D\n4,,Island,-1,,-1,,-1,,-1'), { page: landscape, x: 11.7, y: 60.3, width: 256, height: 89.4 });
-assert.throws(() => pageFor({ width: 320, height: 89.4 }), /320 × 89.4 mm and does not fit on A4 or Letter paper/);
+assert.throws(() => pageFor({ width: 320, height: 89.4 }), /5 card faces, but a page fits at most 4 horizontally/);
 
 (async () => {
   assert.deepEqual(dropAlpha(new Uint8Array([1, 2, 3, 255, 4, 5, 6, 0])), new Uint8Array([1, 2, 3, 4, 5, 6]));

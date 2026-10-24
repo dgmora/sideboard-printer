@@ -1,6 +1,6 @@
 // Run with: node guide.test.js
 const assert = require('node:assert');
-const { parseData, getDecks, buildPivot, unbalanced, layoutCard, generateCardSVG, sheetId, parseTabs, toMatrixCsv, decodeBase64, decodePaste } = require('./guide.js');
+const { parseData, getDecks, buildPivot, unbalanced, layoutCard, maxTextPt, generateCardSVG, sheetId, parseTabs, toMatrixCsv, decodeBase64, decodePaste } = require('./guide.js');
 
 const faceNames = pivot => pivot.faces.map(face => face.map(o => o.name));
 const labels = pivot => pivot.cards.map(c => c.label);
@@ -108,13 +108,28 @@ assert.deepStrictEqual(cardFaces(layoutCard('', wide, { layout: 'middle' })), [[
 assert.deepStrictEqual(cardFaces(layoutCard('', pivot, { layout: 'left' })), [['left', ['Stasis', 'Elves']], [null, ['Goblins']]]);
 
 const manyCards = Array.from({ length: 30 }, (_, i) => `4,,Card ${i},-1`);
-assert.ok(layoutCard('', buildPivot(parseData(['md,sb,Card,Elves', ...manyCards].join('\n')), ''), { textPt: 8 }).textPt < 6);
+const verticallyShrunk = layoutCard('', buildPivot(parseData(['md,sb,Card,Elves', ...manyCards].join('\n')), ''), { textPt: 8 });
+assert.ok(verticallyShrunk.textPt < 6);
+assert.strictEqual(verticallyShrunk.shrinkAxis, 'vertically');
+const horizontallyShrunk = layoutCard('', buildPivot(parseData(`md,sb,Card,Elves\n4,,${'Very long card name '.repeat(5)},-1`), ''), { textPt: 8 });
+assert.ok(horizontallyShrunk.textPt < 8);
+assert.strictEqual(horizontallyShrunk.shrinkAxis, 'horizontally');
+
+const maxFourFaceText = maxTextPt('', twentyWide, 'left');
+assert.strictEqual(layoutCard('', twentyWide, { textPt: maxFourFaceText, layout: 'left' }).faces.length <= 4, true);
+assert.strictEqual(layoutCard('', twentyWide, { textPt: maxFourFaceText + 0.1, layout: 'left' }).faces.length > 4, true);
 
 const single = buildPivot(parseData('md\tsb\tCard\tElves\n4\t\tIsland\t-1'), '');
 const singleSVG = generateCardSVG(layoutCard('', single));
 assert.match(singleSVG, /width="64mm"/);
 assert.match(singleSVG, />Total</);
 assert.match(generateCardSVG(layoutCard('DnT', single)), />DnT</);
+
+const tallCards = Array.from({ length: 22 }, (_, i) => `4,,Card ${i},-1`);
+const tall = layoutCard('DnT', buildPivot(parseData(['md,sb,Card,Elves', ...tallCards].join('\n')), ''), { textPt: 7 });
+assert.strictEqual(tall.title, '');
+assert.strictEqual(tall.textPt, 7);
+assert.doesNotMatch(generateCardSVG(tall), />DnT</);
 
 const foldX = svg => [...svg.matchAll(/<line x1="(\d+)"[^>]*stroke-dasharray/g)].map(m => +m[1]);
 assert.deepStrictEqual(foldX(singleSVG), []);
