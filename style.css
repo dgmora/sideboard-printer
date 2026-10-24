@@ -327,6 +327,7 @@ textarea::placeholder {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+  min-height: 0;
 }
 
 .preview-header {
@@ -342,7 +343,62 @@ textarea::placeholder {
 
 .preview-actions {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.preview-actions select {
+  width: auto;
+}
+
+.preview-size-description {
+  max-width: 210px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.preview-canvas {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-notices {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  height: 72px;
+  width: min(100%, 768px);
+  padding: 10px 24px;
+  align-self: center;
+  flex: none;
+  overflow: auto;
+}
+
+.preview-notices[hidden] {
+  display: grid;
+  visibility: hidden;
+}
+
+.preview-notice {
+  padding: 8px 12px;
+  border: 1px solid;
+  border-radius: 6px;
+}
+
+.preview-notice-warning {
+  color: #654b00;
+  border-color: #e5cf83;
+  background: #fff5cf;
+}
+
+.preview-notice-error {
+  color: #7d2924;
+  border-color: #e0aaa5;
+  background: #fce8e6;
 }
 
 /* ── Menus ───────────────────────────────────────────────────────────────── */
@@ -421,18 +477,32 @@ textarea::placeholder {
 
 .svg-container {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
   padding: 28px;
   display: flex;
   align-items: flex-start;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .svg-container svg {
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
+  flex: none;
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.12));
   display: block;
+}
+
+.svg-container[data-size="actual"] > svg {
+  /* Four 64 mm faces keep the left edge fixed when a guide gains a face. */
+  margin-left: max(0px, calc((100% - 256mm) / 2));
+}
+
+.svg-container[data-size="fit"] > svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 /* ── Example ─────────────────────────────────────────────────────────────── */
@@ -440,6 +510,7 @@ textarea::placeholder {
 .example {
   max-width: 760px;
   width: 100%;
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -474,6 +545,7 @@ textarea::placeholder {
 
 .empty-state {
   display: flex;
+  margin-inline: auto;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -516,5 +588,11 @@ textarea::placeholder {
 
   .svg-container {
     padding: 16px;
+  }
+
+  .svg-container[data-size="fit"] {
+    height: 60vh;
+    flex: none;
+    width: 100%;
   }
 }

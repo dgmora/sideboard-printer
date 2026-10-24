@@ -14,6 +14,8 @@ const pasteSection  = document.getElementById('paste-section');
 const deckSelect  = document.getElementById('deck-select');
 const layoutSelect = document.getElementById('layout');
 const textSize    = document.getElementById('text-size');
+const previewSize = document.getElementById('preview-size');
+const previewSizeDescription = document.getElementById('preview-size-description');
 const svgContainer = document.getElementById('svg-container');
 const downloadBtn = document.getElementById('download-btn');
 const downloadTitle = downloadBtn.title;
@@ -22,6 +24,7 @@ const shareMenu   = document.getElementById('share-menu');
 const shareLive   = document.getElementById('share-live');
 const shareSnapshot = document.getElementById('share-snapshot');
 const previewLabel = document.getElementById('preview-label');
+const previewNotices = document.getElementById('preview-notices');
 const convertPrompt = document.getElementById('convert-prompt');
 const copyPromptBtn = document.getElementById('copy-prompt');
 
@@ -68,6 +71,8 @@ function renderPreview() {
   if (!pivot || pivot.cards.length === 0) {
     currentSVG = '';
     currentDeck = '';
+    previewNotices.hidden = true;
+    previewNotices.replaceChildren();
     downloadBtn.disabled = true;
     shareMenu.hidePopover?.();
     shareBtn.disabled = true;
@@ -93,10 +98,18 @@ function renderPreview() {
   downloadBtn.disabled = Boolean(tooWide);
   downloadBtn.title = tooWide || downloadTitle;
   shareBtn.disabled = false;
-  const offBalance = unbalanced(pivot);
-  const warning = offBalance.length ? `Too many cards in: ${offBalance.join(', ')}` : '';
-  const shrunk = card.textPt < TEXT_SIZES_PT[textSize.value] ? `Text shrunk to ${card.textPt.toFixed(1)} pt to fit` : '';
-  previewLabel.textContent = [deck, warning, shrunk, tooWide].filter(Boolean).join(' — ') || 'Preview';
+  previewLabel.textContent = deck || 'Preview';
+  const shrunk = card.textPt < TEXT_SIZES_PT[textSize.value] ? `Text shrunk to ${card.textPt.toFixed(1)} pt to fit.` : '';
+  previewNotices.replaceChildren(...[
+    shrunk && ['warning', shrunk],
+    tooWide && ['error', tooWide],
+  ].filter(Boolean).map(([type, message]) => {
+    const notice = document.createElement('p');
+    notice.className = `preview-notice preview-notice-${type}`;
+    notice.textContent = message;
+    return notice;
+  }));
+  previewNotices.hidden = !previewNotices.childElementCount;
 }
 
 function printProblem(svg) {
@@ -247,6 +260,18 @@ deckSelect.addEventListener('change', () => {
 });
 textSize.value = [shared.get('size'), load('textSize')].find(size => size in TEXT_SIZES_PT) ?? textSize.value;
 layoutSelect.value = [shared.get('names'), load('layout')].find(layout => LAYOUTS.includes(layout)) ?? layoutSelect.value;
+previewSize.value = ['actual', 'fit'].includes(load('previewSize')) ? load('previewSize') : 'actual';
+svgContainer.dataset.size = previewSize.value;
+const previewSizeDescriptions = {
+  actual: 'Shows the guide at print scale. Each face is 64 × 89.4 mm (card size).',
+  fit: 'Scales the guide to fit the available space.',
+};
+previewSizeDescription.textContent = previewSizeDescriptions[previewSize.value];
+previewSize.addEventListener('change', () => {
+  svgContainer.dataset.size = previewSize.value;
+  previewSizeDescription.textContent = previewSizeDescriptions[previewSize.value];
+  save('previewSize', previewSize.value);
+});
 for (const [select, key] of [[textSize, 'textSize'], [layoutSelect, 'layout']]) {
   select.addEventListener('change', () => {
     save(key, select.value);

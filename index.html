@@ -106,6 +106,12 @@ Write line breaks as %0A, spaces as %20, % as %25, + as %2B, &amp; as %26, # as 
       <div class="preview-header">
         <span id="preview-label" class="preview-title">Preview</span>
         <div class="preview-actions">
+          <label for="preview-size">Preview size</label>
+          <select id="preview-size" aria-describedby="preview-size-description">
+            <option value="actual">Card size</option>
+            <option value="fit">Fit to browser</option>
+          </select>
+          <span id="preview-size-description" class="preview-size-description">Shows the guide at print scale. Each face is 64 × 89.4 mm (card size).</span>
           <button id="share-btn" class="btn btn-secondary" popovertarget="share-menu" disabled>Share guide…</button>
           <button id="download-btn" class="btn btn-primary" title="The guide at its real size, 64 × 89.4 mm per card. Print it on A4 or Letter paper at 100% scale." disabled>Download PDF</button>
         </div>
@@ -123,7 +129,10 @@ Write line breaks as %0A, spaces as %20, % as %25, + as %2B, &amp; as %26, # as 
         </button>
       </div>
 
-      <div id="svg-container" class="svg-container"></div>
+      <div class="preview-canvas">
+        <div id="preview-notices" class="preview-notices" aria-live="polite" hidden></div>
+        <div id="svg-container" class="svg-container" data-size="actual"></div>
+      </div>
 
       <template id="example-template">
         <div class="example">
