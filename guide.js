@@ -3,14 +3,15 @@
 /**
  * Parse sideboard data into an array of records. Accepts two layouts, as CSV or TSV:
  *   long:   deck · opponent · card · maindeck (1/0) · delta, one row per change
- *   matrix: md · sb · <deck name> · opponent columns, as kept in a spreadsheet.
+ *   matrix: count · Maindeck · opponent columns, then a Sideboard section.
+ *   Legacy md · sb · Card matrices are also accepted.
  * Anything else, like a spreadsheet tab that isn't a guide, gives no records.
  */
 function parseData(text) {
   const rows = toRows(text);
   while (rows.length && !rows[0].some(c => c)) rows.shift();
   const layout = rows[0]?.[0].toLowerCase();
-  if (layout === 'md') return parseMatrix(rows);
+  if (layout === 'md' || /^maindeck$/i.test(rows[0]?.[1] ?? '')) return parseMatrix(rows);
   if (layout === 'deck') return parseLong(rows.slice(1));
   return [];
 }
@@ -39,7 +40,9 @@ function toRows(text) {
   }
   row.push(cell);
   rows.push(row);
-  return rows.map(r => r.map(c => c.trim()));
+  // Invisible spacers keep unused Google Sheets headers inclined. They are
+  // formatting placeholders, not matchup names or note content.
+  return rows.map(r => r.map(c => c.trim().replace(/^\u200b+$/, '')));
 }
 
 /**
@@ -77,10 +80,12 @@ function parseLong(rows) {
  */
 function parseMatrix(rows) {
   const header = rows[0];
+  const singleCount = /^maindeck$/i.test(header[1] ?? '');
+  const nameColumn = singleCount ? 1 : 2;
 
   const columns = [];
   let face = 0;
-  for (let i = 3; i < header.length; i++) {
+  for (let i = nameColumn + 1; i < header.length; i++) {
     if (header[i]) columns.push({ column: i, opponent: header[i], face });
     else if (columns.at(-1)?.face === face) face++;
   }
@@ -89,19 +94,29 @@ function parseMatrix(rows) {
   // Card-less records keep every opponent column, in header order, even without changes
   const records = columns.map(c => ({ deck: '', ...c, card: null }));
   let pastBlankRow = false;
+  let pastTotal = false;
   rows.slice(1).forEach((cells, row) => {
-    if (!cells.some(c => c)) { pastBlankRow = true; return; }
+    if (!cells.some(c => c)) { if (!singleCount) pastBlankRow = true; return; }
     const md   = parseInt(cells[0], 10) || 0;
     const sb   = parseInt(cells[1], 10) || 0;
-    const name = cells[2];
-    if (!name || /^totals?:?$/i.test(name)) return;
+    const name = cells[nameColumn] || '';
+    if (/^sideboard$/i.test(name)) { pastBlankRow = true; return; }
+    if (/^totals?:?$/i.test(name)) { pastTotal = true; return; }
+    if (pastTotal) {
+      // Legacy templates keep instructions below their totals; only the new
+      // sectioned layout treats these rows as printable matchup notes.
+      if (singleCount && (name || columns.some(c => cells[c.column]))) records.push({ deck: '', note: true, row, name,
+        values: columns.map(c => [c.column, cells[c.column] || '']) });
+      return;
+    }
+    if (!name) return;
 
     cells.forEach((value, i) => {
       const column = columnAt.get(i);
       const delta = column && parseDelta(value);
       if (!delta) return;
-      const fromSideboard = pastBlankRow || (sb > 0 && (delta[0] === '+' || md === 0));
-      const count = fromSideboard ? sb || md : md;
+      const fromSideboard = pastBlankRow || (!singleCount && sb > 0 && (delta[0] === '+' || md === 0));
+      const count = singleCount ? md : fromSideboard ? sb || md : md;
       records.push({
         deck:     '',
         ...column,
@@ -142,7 +157,7 @@ function buildPivot(records, deckName) {
 
   const opponents = new Map();
   const faces = [];
-  for (const r of deckRecords) {
+  for (const r of deckRecords.filter(r => !r.note)) {
     if (opponents.has(opponentKey(r))) continue;
     const opponent = { key: opponentKey(r), name: r.opponent };
     opponents.set(opponent.key, opponent);
@@ -158,7 +173,8 @@ function buildPivot(records, deckName) {
   const cards = [...rows.values()].sort((a, b) => b.maindeck - a.maindeck || a.name.localeCompare(b.name));
   const firstSideboard = cards.findIndex(c => !c.maindeck);
 
-  return { cards, faces, firstSideboard };
+  const notes = deckRecords.filter(r => r.note).map(r => ({ label: r.name, values: new Map(r.values) }));
+  return { cards, faces, firstSideboard, notes };
 }
 
 function matchupTotal(cards, opponent) {
@@ -213,19 +229,20 @@ function splitEvenly(opponents, perFace) {
 }
 
 const EXAMPLE_SHEET = [
-  ['md', 'sb', 'Card', 'Delver', 'Burn', 'Reanimator', 'Storm', '', 'Elves', 'Lands', 'Show and Tell', 'Eldrazi'],
-  ['4', '', 'Swords to Plowshares', '', '', '', '-2', '', '', '-2', '-2'],
-  ['4', '', 'Thalia, Guardian of Thraben', '', '', '', '', '', '-1', '', '', '-2'],
-  ['3', '', 'Flickerwisp', '-1', '-2', '-1'],
-  ['2', '', 'Mirran Crusader', '', '', '-1', '-2', '', '', '', '-2'],
-  [],
-  ['', '2', 'Path to Exile', '+1', '', '', '', '', '+1*', '', '', '+2'],
-  ['', '2', 'Kor Firewalker', '', '+2'],
-  ['', '2', 'Rest in Peace', '', '', '+2'],
-  ['', '2', 'Ethersworn Canonist', '', '', '', '+2'],
-  ['', '2', 'Surgical Extraction', '', '', '', '+2'],
-  ['', '2', "Council's Judgment", '', '', '', '', '', '', '+2', '+2'],
-  ['', '2', 'Containment Priest', '', '', '', '', '', '', '', '+2'],
+  ['13', 'Maindeck', 'Delver', 'Burn', 'Reanimator', 'Storm', '', 'Elves', 'Lands', 'Show and Tell', 'Eldrazi'],
+  ['4', 'Swords to Plowshares', '', '', '', '-2', '', '', '-2', '-2'],
+  ['4', 'Thalia, Guardian of Thraben', '', '', '', '', '', '-1', '', '', '-2'],
+  ['3', 'Flickerwisp', '-1', '-2', '-1'],
+  ['2', 'Mirran Crusader', '', '', '-1', '-2', '', '', '', '-2'],
+  ['14', 'Sideboard'],
+  ['2', 'Path to Exile', '+1', '', '', '', '', '+1*', '', '', '+2'],
+  ['2', 'Kor Firewalker', '', '+2'],
+  ['2', 'Rest in Peace', '', '', '+2'],
+  ['2', 'Ethersworn Canonist', '', '', '', '+2'],
+  ['2', 'Surgical Extraction', '', '', '', '+2'],
+  ['2', "Council's Judgment", '', '', '', '', '', '', '+2', '+2'],
+  ['2', 'Containment Priest', '', '', '', '', '', '', '', '+2'],
+  ['', 'Total'],
 ].map(row => row.join('\t')).join('\n');
 
 /**
@@ -265,35 +282,52 @@ function arrangeFaces(sheetFaces, layout, capacity) {
  * textPt then holds the size it prints at, below the one asked for.
  * Faces of one continuous table hug the folds between them.
  */
-function layoutCard(title, { cards, faces: sheetFaces, firstSideboard }, { textPt = TEXT_SIZES_PT.medium, layout = 'every' } = {}) {
+// Wrap note text before rotating it into a matchup column. Each note row
+// reserves enough column width to keep the text at a readable size.
+function noteLines(value) {
+  return String(value).split('\n').flatMap(line => {
+    const parts = [];
+    let rest = line;
+    while (rest.length > 12) {
+      const space = rest.lastIndexOf(' ', 12);
+      const end = space > 0 ? space : 12;
+      parts.push(rest.slice(0, end));
+      rest = rest.slice(end).trimStart();
+    }
+    return [...parts, rest];
+  });
+}
+
+function layoutCard(title, { cards, faces: sheetFaces, firstSideboard, notes = [] }, { textPt = TEXT_SIZES_PT.medium, layout = 'every' } = {}) {
   const { font } = FOLD;
-  const rowLabels = [...cards.map(c => c.label), 'Total'];
+  const noteCol = Math.max(FOLD.col, ...notes.flatMap(n => [...n.values.values()].map(v => noteLines(v).length * 24 + 8)));
+  const rowLabels = [...cards.map(c => c.label), 'Total', ...notes.map(n => n.label)];
   const nameW   = Math.max(...rowLabels.map(l => textWidth(l, font))) + 16;
   const headerH = Math.max(...sheetFaces.flat().map(o => textWidth(o.name, font))) + 16;
   const halfW = 640, sheetH = 894, margin = 10;
   const wanted = textPt * UNITS_PER_PT / font;
   const availableH = sheetH - 2 * margin;
-  if (title && (FOLD.title + headerH + rowLabels.length * FOLD.row) * wanted > availableH) title = '';
+  if (title && (FOLD.title + headerH + (cards.length + 1) * FOLD.row + notes.length * 180) * wanted > availableH) title = '';
   const titleW  = title ? textWidth(title, FOLD.titleFont) : 0;
   const tableY  = (title ? FOLD.title : 0) + headerH;
 
   // 10 units per mm
   const usable = (halfW - 2 * margin) / wanted;
   const namesWidth = names => (names ? nameW : 0);
-  const capacity = names => Math.max(1, Math.floor((usable - namesWidth(names)) / FOLD.col));
+  const capacity = names => Math.max(1, Math.floor((usable - namesWidth(names) - headerH * 0.27) / noteCol));
   const continuous = (layout === 'left' || layout === 'middle');
   const faces = arrangeFaces(sheetFaces, layout, capacity).map((face, fi, all) => ({
     ...face,
     align: !continuous || all.length === 1 ? 'center' : fi === 0 ? 'right' : fi === all.length - 1 ? 'left' : 'center',
   }));
-  const naturalW = Math.max(titleW, ...faces.map(f => namesWidth(f.names) + f.opponents.length * FOLD.col));
-  const naturalH = tableY + rowLabels.length * FOLD.row;
+  const naturalW = Math.max(titleW, ...faces.map(f => namesWidth(f.names) + f.opponents.length * noteCol + headerH * 0.27));
+  const naturalH = tableY + (cards.length + 1) * FOLD.row + notes.length * 180;
   const widthScale = (halfW - 2 * margin) / naturalW;
   const heightScale = availableH / naturalH;
   const scale = Math.min(wanted, widthScale, heightScale);
 
   return {
-    title, cards, faces, firstSideboard, rowLabels, nameW, headerH, tableY, halfW, sheetH, margin, scale,
+    title, cards, faces, firstSideboard, notes, noteCol, rowLabels, nameW, headerH, tableY, halfW, sheetH, margin, scale,
     textPt: scale < wanted * 0.999 ? scale * font / UNITS_PER_PT : textPt,
     shrinkAxis: scale < wanted * 0.999 ? (heightScale <= widthScale ? 'vertically' : 'horizontally') : '',
   };
@@ -315,15 +349,16 @@ function maxTextPt(title, pivot, layout = 'every') {
  * 1 mm margin. An empty title leaves no title row.
  */
 function generateCardSVG(layout) {
-  const { title, cards, faces, firstSideboard, rowLabels, nameW, headerH, tableY, halfW, sheetH, margin, scale } = layout;
+  const { title, cards, faces, firstSideboard, notes, noteCol, rowLabels, nameW, headerH, tableY, halfW, sheetH, margin, scale } = layout;
   const { font } = FOLD;
   const sheetW = halfW * faces.length;
   const faceW = (halfW - 2 * margin) / scale;
   const faceH = (sheetH - 2 * margin) / scale;
-  const row = (faceH - tableY) / rowLabels.length;
+  const noteHeight = 180;
+  const row = (faceH - tableY - notes.length * noteHeight) / (cards.length + 1);
   const namesWidth = names => (names ? nameW : 0);
-  const fill = faces.filter(f => f.opponents.length).map(f => (faceW - namesWidth(f.names)) / f.opponents.length);
-  const col = Math.max(FOLD.col, Math.min(...fill));
+  const fill = faces.filter(f => f.opponents.length).map(f => (faceW - namesWidth(f.names) - headerH * 0.27) / f.opponents.length);
+  const col = Math.max(noteCol, Math.min(...fill));
   const baseline = (ri, size) => tableY + ri * row + (row + size * 0.7) / 2;
 
   const lines = [
@@ -340,31 +375,33 @@ function generateCardSVG(layout) {
     const y0 = margin;
     const namesW = names === 'only' ? faceW : namesWidth(names);
     const tableW = namesW + opponents.length * col;
-    const left   = { left: 0, center: (faceW - tableW) / 2, right: faceW - tableW }[align];
+    const left   = { left: 0, center: (faceW - tableW - headerH * 0.27) / 2, right: faceW - tableW - headerH * 0.27 }[align];
     const colsX  = names === 'right' ? left : left + namesW;
     const [nameX, anchor] = {
       left:  [colsX - 12, 'end'],
       right: [colsX + opponents.length * col + 12, 'start'],
       only:  [faceW / 2, 'middle'],
     }[names] ?? [];
-    const bottom = tableY + (cards.length + 1) * row;
+
 
     lines.push(`  <g transform="translate(${x0.toFixed(1)},${y0.toFixed(1)}) scale(${scale.toFixed(4)})" font-family="sans-serif">`);
     if (title) lines.push(`    <text x="${faceW / 2}" y="${FOLD.title * 0.8}" font-size="${FOLD.titleFont}" text-anchor="middle">${escapeXml(title)}</text>`);
 
     opponents.forEach((opp, i) => {
       const x = colsX + i * col;
-      if (i % 2 === 0) lines.push(`    <rect x="${x + 2}" y="${tableY - headerH}" width="${col - 4}" height="${bottom - tableY + headerH}" fill="#ececec"/>`);
+      if (i % 2 === 0) lines.push(`    <rect x="${x}" y="${tableY}" width="${col}" height="${faceH - tableY}" fill="#f3f3f3"/>`);
+      const slant = headerH * 0.27;
+      lines.push(`    <polygon points="${x},${tableY} ${x + col},${tableY} ${x + col + slant},${tableY - headerH} ${x + slant},${tableY - headerH}" fill="${i % 2 === 0 ? '#f3f3f3' : '#ffffff'}"/>`);
       const tx = x + col / 2 + font * 0.35;
-      lines.push(`    <text x="${tx}" y="${tableY - 8}" transform="rotate(-90,${tx},${tableY - 8})" font-size="${font}">${escapeXml(opp.name)}</text>`);
+      lines.push(`    <text x="${tx}" y="${tableY - 8}" transform="rotate(-75,${tx},${tableY - 8})" font-size="${font}">${escapeXml(opp.name)}</text>`);
     });
 
     rowLabels.forEach((label, ri) => {
-      const y = tableY + ri * row;
-      const thick = (ri === firstSideboard && ri > 0) || ri === cards.length;
+      const y = tableY + Math.min(ri, cards.length + 1) * row + Math.max(0, ri - cards.length - 1) * noteHeight;
+      const thick = ri === firstSideboard && ri > 0;
       lines.push(`    <line x1="${left}" y1="${y}" x2="${left + tableW}" y2="${y}" stroke="rgb(40,40,40)" ` +
         `stroke-width="${thick ? 4 : 2}" stroke-opacity="${thick ? 0.8 : 0.2}"/>`);
-      if (names) lines.push(`    <text x="${nameX}" y="${baseline(ri, font)}" font-size="${font}" text-anchor="${anchor}">${escapeXml(label)}</text>`);
+      if (names) lines.push(`    <text x="${nameX}" y="${ri <= cards.length ? baseline(ri, font) : y + font}" font-size="${font}" text-anchor="${anchor}">${escapeXml(label)}</text>`);
     });
 
     opponents.forEach((opp, i) => {
@@ -381,6 +418,18 @@ function generateCardSVG(layout) {
         `style="${style}">${total > 0 ? '+' : ''}${total}</text>`);
     });
 
+    notes.forEach((note, ni) => {
+      const y = tableY + (cards.length + 1) * row + ni * noteHeight;
+      opponents.forEach((opp, i) => {
+        const value = note.values.get(opp.key);
+        if (!value) return;
+        const x = colsX + (i + 0.5) * col;
+        const parts = noteLines(value);
+        const size = Math.min(24, (col - 8) / parts.length,
+          ...parts.map(part => (noteHeight - 16) / Math.max(1, textWidth(part, 1))));
+        parts.forEach((part, j) => lines.push(`    <text x="${x + (j - (parts.length - 1) / 2) * size}" y="${y + noteHeight - 8}" transform="rotate(-90,${x + (j - (parts.length - 1) / 2) * size},${y + noteHeight - 8})" font-size="${size}">${escapeXml(part)}</text>`));
+      });
+    });
     lines.push(`  </g>`);
   });
 
@@ -424,17 +473,21 @@ function unescapeJs(str) {
  * One deck's guide as matrix CSV, leaving out anything else in its sheet.
  */
 function toMatrixCsv(records, deckName) {
-  const { cards, faces, firstSideboard } = buildPivot(records, deckName);
+  const { cards, faces, firstSideboard, notes } = buildPivot(records, deckName);
   const opponents = faces.flatMap((face, i) => (i ? [null, ...face] : face));
   const line = cells => cells.map(csvCell).join(',');
 
-  const lines = [line(['md', 'sb', 'Card', ...opponents.map(o => o?.name ?? '')])];
+  const countOf = card => card.label.slice(0, card.label.length - card.name.length).trim();
+  const sectionTotal = maindeck => cards.filter(card => Boolean(card.maindeck) === maindeck)
+    .reduce((sum, card) => sum + (parseInt(countOf(card), 10) || 0), 0);
+  const lines = [line([String(sectionTotal(true)), 'Maindeck', ...opponents.map(o => o?.name ?? '')])];
   cards.forEach((card, i) => {
-    if (i === firstSideboard) lines.push('');
-    const count = card.label.slice(0, card.label.length - card.name.length).trim();
+    if (i === firstSideboard) lines.push(line([String(sectionTotal(false)), 'Sideboard']));
     const deltas = opponents.map(o => (o && card.values.get(o.key)) || '');
-    lines.push(line([card.maindeck ? count : '', card.maindeck ? '' : count, card.name, ...deltas]));
+    lines.push(line([countOf(card), card.name, ...deltas]));
   });
+  lines.push(line(['', 'Total', ...opponents.map(o => o ? String(matchupTotal(cards, o)) : '')]));
+  notes.forEach(note => lines.push(line(['', note.label, ...opponents.map(o => o ? note.values.get(o.key) || '' : '')])));
   return lines.join('\n');
 }
 
