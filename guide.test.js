@@ -98,7 +98,7 @@ assert.deepStrictEqual(cardFaces(layoutCard('', wide, { textPt: 8, layout: 'outs
 
 const twenty = Array.from({ length: 20 }, (_, i) => `Opp ${i}`);
 const twentyWide = buildPivot(parseData(`md,sb,Card,${twenty.join(',')}\n4,,Island,-1`), '');
-assert.deepStrictEqual(cardFaces(layoutCard('', twentyWide, { textPt: 8, layout: 'left' })), [['left', twenty.slice(0, 11)], [null, twenty.slice(11)]]);
+assert.deepStrictEqual(cardFaces(layoutCard('', twentyWide, { textPt: 8, layout: 'left' })), [['left', twenty.slice(0, 10)], [null, twenty.slice(10)]]);
 assert.deepStrictEqual(cardFaces(layoutCard('', twentyWide, { textPt: 8, layout: 'middle' })), [[null, twenty.slice(0, 10)], ['only', []], [null, twenty.slice(10)]]);
 assert.deepStrictEqual(layoutCard('', twentyWide, { textPt: 8, layout: 'middle' }).faces.map(f => f.align), ['right', 'center', 'left']);
 for (const layout of ['left', 'middle']) {
@@ -161,14 +161,41 @@ assert.strictEqual(decodePaste(new URLSearchParams('paste=md,sb,Card,Elves%0A4,,
 
 const withNotes = parseData(`${matrix}\n\t\t\tNotes:\n\t\t\t\tKeep "Jace, the Mind Sculptor" in`);
 const snapshot = toMatrixCsv(withNotes, '');
-assert.doesNotMatch(snapshot, /Notes|Total/);
+assert.doesNotMatch(snapshot, /Notes/);
+assert.match(snapshot, /^5,Maindeck,/);
+assert.match(snapshot, /\n,Total,/);
 assert.deepStrictEqual(labels(roundTrip(withNotes)), labels(pivot));
 assert.deepStrictEqual(faceNames(roundTrip(withNotes)), faceNames(pivot));
 assert.deepStrictEqual(matchup(roundTrip(withNotes), 2), matchup(pivot, 2));
 assert.deepStrictEqual(labels(roundTrip(quoted)), labels(buildPivot(quoted, '')));
 assert.deepStrictEqual(faceNames(roundTrip(wideRecords)), faceNames(wide));
 assert.deepStrictEqual(matchup(roundTrip(long, 'DnT'), 0), { Path: '+1' });
-assert.deepStrictEqual(roundTrip(parseData('md,sb,Card,Elves,Goblins\n2,2,Path to Exile,-2,2')).cards, sameCounts.cards);
+assert.deepStrictEqual(labels(roundTrip(parseData('md,sb,Card,Elves,Goblins\n2,2,Path to Exile,-2,2'))), labels(sameCounts));
+assert.deepStrictEqual(matchup(roundTrip(parseData('md,sb,Card,Elves,Goblins\n2,2,Path to Exile,-2,2')), 1), matchup(sameCounts, 1));
 assert.deepStrictEqual(faceNames(roundTrip(parseData('md,sb,Card,"Bant\tSpirits"\n4,,Island,-1'))), [['Bant\tSpirits']]);
 
+
+// Sectioned sheets keep duplicate cards separate and preserve arbitrary notes,
+// including numbers and signs, through snapshot sharing and SVG/PDF rendering.
+const sectioned = parseData('3,Maindeck,Mirror,Burn\n3,Seal,-1?,-3\n2,Sideboard\n1,Seal,1,\n1,Hydroblast,,1\n,Total,0,-2\n,Plan,Keep 2 mana open,"Wait, then attack"\n,,"<3 & -2",');
+const sectionedPivot = buildPivot(sectioned, '');
+assert.deepStrictEqual(faceNames(sectionedPivot), [['Mirror', 'Burn']]);
+assert.deepStrictEqual(labels(sectionedPivot), ['3 Seal', '1 Hydroblast', '1 Seal']);
+assert.deepStrictEqual(unbalanced(sectionedPivot), []);
+assert.strictEqual(sectionedPivot.notes[0].values.get(2), 'Keep 2 mana open');
+assert.deepStrictEqual(roundTrip(sectioned).notes, sectionedPivot.notes);
+const noteSvg = generateCardSVG(layoutCard('', sectionedPivot));
+assert.ok(noteSvg.includes('Keep 2 mana') && noteSvg.includes('open'));
+assert.ok(noteSvg.includes('&lt;3 &amp; -2'));
+assert.ok(noteSvg.indexOf('Keep 2 mana') > noteSvg.indexOf('>-2</text>'));
+assert.ok(!noteSvg.includes('NaN'));
+
+// Unused preformatted columns do not create opponents, and instructions outside
+// the guide columns are not imported as notes. The header starts on row 1.
+const templateText = '3,Maindeck,Mirror (Play),Mirror (Draw),Stiflenought,Goblins,\u200b,\u200b,\u200b,\u200b\n3,Seal of Cleansing,-1?,-1,,-3\n2,Sideboard\n1,Seal of Cleansing,,,1\n1,Hydroblast,1*,1,,1\n,Total,0,0,1,-2\n,Notes,Keep 2 mana open,,Name Dreadnought\n,Plan,,Play around counters,,Stabilize first\n,,,,,,,Template instructions';
+const finalTemplate = buildPivot(parseData(templateText), '');
+assert.deepStrictEqual(faceNames(finalTemplate), [['Mirror (Play)', 'Mirror (Draw)', 'Stiflenought', 'Goblins']]);
+assert.strictEqual(finalTemplate.notes.length, 2);
+assert.deepStrictEqual(faceNames(roundTrip(parseData(templateText))), faceNames(finalTemplate));
+assert.deepStrictEqual(roundTrip(parseData(templateText)).notes, finalTemplate.notes);
 console.log('ok');
