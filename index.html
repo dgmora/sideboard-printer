@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Security: allow scripts and assets only from this site, and network requests only to Google Sheets.
-       Keep this policy in production; dev-server live reload must handle its own exceptions. -->
+  <!-- Security: restrict scripts to this site and network connections to Google Sheets endpoints. Keep this CSP in production. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://docs.google.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'none'">
   <title>Sideboard Printer – Printable Sideboard Guide Template</title>
   <meta name="description" content="Free tool that turns a Google Sheets sideboard guide into a printable card for your deck box, for Magic: The Gathering and other card games.">
