@@ -98,7 +98,7 @@ assert.deepStrictEqual(cardFaces(layoutCard('', wide, { textPt: 8, layout: 'outs
 
 const twenty = Array.from({ length: 20 }, (_, i) => `Opp ${i}`);
 const twentyWide = buildPivot(parseData(`md,sb,Card,${twenty.join(',')}\n4,,Island,-1`), '');
-assert.deepStrictEqual(cardFaces(layoutCard('', twentyWide, { textPt: 8, layout: 'left' })), [['left', twenty.slice(0, 10)], [null, twenty.slice(10)]]);
+assert.deepStrictEqual(cardFaces(layoutCard('', twentyWide, { textPt: 8, layout: 'left' })), [['left', twenty.slice(0, 11)], [null, twenty.slice(11)]]);
 assert.deepStrictEqual(cardFaces(layoutCard('', twentyWide, { textPt: 8, layout: 'middle' })), [[null, twenty.slice(0, 10)], ['only', []], [null, twenty.slice(10)]]);
 assert.deepStrictEqual(layoutCard('', twentyWide, { textPt: 8, layout: 'middle' }).faces.map(f => f.align), ['right', 'center', 'left']);
 for (const layout of ['left', 'middle']) {
@@ -134,6 +134,18 @@ assert.doesNotMatch(generateCardSVG(tall), />DnT</);
 const foldX = svg => [...svg.matchAll(/<line x1="(\d+)"[^>]*stroke-dasharray/g)].map(m => +m[1]);
 assert.deepStrictEqual(foldX(singleSVG), []);
 assert.deepStrictEqual(foldX(generateCardSVG(layoutCard('', buildPivot(parseData('md,sb,Card,A,,B,,C\n4,,Island,-1,,-1,,-1'), '')))), [640, 1280]);
+
+// The data column reaches the usual 1 mm inset at the fold. Its inclined
+// header can cross that fold without reserving more horizontal space.
+const foldBoundary = layoutCard('', buildPivot(parseData('4,Maindeck,Terrageddon,,Elves\n4,Island,-1,,-1'), ''), { layout: 'left' });
+const boundarySVG = generateCardSVG(foldBoundary);
+const firstFace = boundarySVG.match(/<g transform="translate\(([\d.]+),[\d.]+\) scale\(([\d.]+)\)"[^>]*>([\s\S]*?)<\/g>/);
+const stripe = firstFace[3].match(/<rect x="([\d.]+)"[^>]*width="([\d.]+)"/);
+const dataRight = +firstFace[1] + +firstFace[2] * (+stripe[1] + +stripe[2]);
+assert.ok(Math.abs(dataRight - (foldBoundary.halfW - foldBoundary.margin)) < 0.1);
+const headerPoints = firstFace[3].match(/<polygon points="([^"]+)"/)[1].split(' ').map(point => +point.split(',')[0]);
+assert.ok(+firstFace[1] + +firstFace[2] * Math.max(...headerPoints) > foldBoundary.halfW);
+assert.ok(boundarySVG.indexOf('stroke-dasharray') > boundarySVG.lastIndexOf('</g>'));
 
 assert.strictEqual(sheetId('https://docs.google.com/spreadsheets/d/1Bx-i_9/edit#gid=12'), '1Bx-i_9');
 assert.strictEqual(sheetId('https://example.com/d/1Bx'), null);

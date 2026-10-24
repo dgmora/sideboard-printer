@@ -314,13 +314,15 @@ function layoutCard(title, { cards, faces: sheetFaces, firstSideboard, notes = [
   // 10 units per mm
   const usable = (halfW - 2 * margin) / wanted;
   const namesWidth = names => (names ? nameW : 0);
-  const capacity = names => Math.max(1, Math.floor((usable - namesWidth(names) - headerH * 0.27) / noteCol));
+  // Face boundaries follow the data columns. Inclined headers may cross a fold
+  // or be clipped at the outer edge; their overhang does not consume a column.
+  const capacity = names => Math.max(1, Math.floor((usable - namesWidth(names)) / noteCol));
   const continuous = (layout === 'left' || layout === 'middle');
   const faces = arrangeFaces(sheetFaces, layout, capacity).map((face, fi, all) => ({
     ...face,
     align: !continuous || all.length === 1 ? 'center' : fi === 0 ? 'right' : fi === all.length - 1 ? 'left' : 'center',
   }));
-  const naturalW = Math.max(titleW, ...faces.map(f => namesWidth(f.names) + f.opponents.length * noteCol + headerH * 0.27));
+  const naturalW = Math.max(titleW, ...faces.map(f => namesWidth(f.names) + f.opponents.length * noteCol));
   const naturalH = tableY + (cards.length + 1) * FOLD.row + notes.length * 180;
   const widthScale = (halfW - 2 * margin) / naturalW;
   const heightScale = availableH / naturalH;
@@ -357,7 +359,7 @@ function generateCardSVG(layout) {
   const noteHeight = 180;
   const row = (faceH - tableY - notes.length * noteHeight) / (cards.length + 1);
   const namesWidth = names => (names ? nameW : 0);
-  const fill = faces.filter(f => f.opponents.length).map(f => (faceW - namesWidth(f.names) - headerH * 0.27) / f.opponents.length);
+  const fill = faces.filter(f => f.opponents.length).map(f => (faceW - namesWidth(f.names)) / f.opponents.length);
   const col = Math.max(noteCol, Math.min(...fill));
   const baseline = (ri, size) => tableY + ri * row + (row + size * 0.7) / 2;
 
@@ -366,16 +368,13 @@ function generateCardSVG(layout) {
     `<svg xmlns="http://www.w3.org/2000/svg" width="${64 * faces.length}mm" height="89.4mm" viewBox="0 0 ${sheetW} ${sheetH}">`,
     `  <rect width="${sheetW}" height="${sheetH}" fill="#ffffff" stroke="#bbbbbb" stroke-width="2"/>`,
   ];
-  for (let fold = halfW; fold < sheetW; fold += halfW) {
-    lines.push(`  <line x1="${fold}" y1="0" x2="${fold}" y2="${sheetH}" stroke="#bbbbbb" stroke-width="2" stroke-dasharray="12,10"/>`);
-  }
 
   faces.forEach(({ opponents, names, align }, fi) => {
     const x0 = fi * halfW + margin;
     const y0 = margin;
     const namesW = names === 'only' ? faceW : namesWidth(names);
     const tableW = namesW + opponents.length * col;
-    const left   = { left: 0, center: (faceW - tableW - headerH * 0.27) / 2, right: faceW - tableW - headerH * 0.27 }[align];
+    const left   = { left: 0, center: (faceW - tableW) / 2, right: faceW - tableW }[align];
     const colsX  = names === 'right' ? left : left + namesW;
     const [nameX, anchor] = {
       left:  [colsX - 12, 'end'],
@@ -433,6 +432,10 @@ function generateCardSVG(layout) {
     lines.push(`  </g>`);
   });
 
+  // Keep the folding guides visible over any header that crosses a face edge.
+  for (let fold = halfW; fold < sheetW; fold += halfW) {
+    lines.push(`  <line x1="${fold}" y1="0" x2="${fold}" y2="${sheetH}" stroke="#bbbbbb" stroke-width="2" stroke-dasharray="12,10"/>`);
+  }
   lines.push(`</svg>`);
   return lines.join('\n');
 }
