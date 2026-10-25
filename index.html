@@ -105,7 +105,6 @@ Write line breaks as %0A, spaces as %20, % as %25, + as %2B, &amp; as %26, # as 
     <main class="preview-area">
       <div class="preview-header">
         <span id="preview-label" class="preview-title">Preview</span>
-        <p class="preview-size-description">Shown at print scale: each face is 64 × 89.4 mm (card size).<span class="mobile-scroll-hint"> Swipe the guide sideways to see all faces.</span></p>
         <div class="preview-actions">
           <button id="share-btn" class="btn btn-secondary" popovertarget="share-menu" disabled>Share guide…</button>
           <button id="download-btn" class="btn btn-primary" title="The guide at its real size, 64 × 89.4 mm per card. Print it on A4 or Letter paper at 100% scale." disabled>Download PDF</button>
@@ -128,6 +127,10 @@ Write line breaks as %0A, spaces as %20, % as %25, + as %2B, &amp; as %26, # as 
         <div id="preview-notices" class="preview-notices" aria-live="polite" hidden></div>
         <div id="svg-container" class="svg-container" tabindex="0" role="region" aria-label="Sideboard guide preview"></div>
       </div>
+
+      <template id="preview-size-note">
+        <p class="preview-size-description">Shown at print scale: each face is 64 × 89.4 mm (card size).<span class="mobile-scroll-hint"> Swipe the guide sideways to see all faces.</span></p>
+      </template>
 
       <template id="example-template">
         <div class="example">

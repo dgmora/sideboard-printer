@@ -15,6 +15,7 @@ const deckSelect  = document.getElementById('deck-select');
 const layoutSelect = document.getElementById('layout');
 const textSize    = document.getElementById('text-size');
 const svgContainer = document.getElementById('svg-container');
+const previewSizeNote = document.getElementById('preview-size-note');
 const downloadBtn = document.getElementById('download-btn');
 const downloadTitle = downloadBtn.title;
 const shareBtn    = document.getElementById('share-btn');
@@ -69,6 +70,7 @@ function showExample() {
   const example = document.getElementById('example-template').content.cloneNode(true);
   example.querySelector('.example-card').innerHTML =
     generateCardSVG(layoutCard('', buildPivot(parseData(EXAMPLE_SHEET), ''), cardOptions()));
+  example.querySelector('.example-card').after(previewSizeNote.content.cloneNode(true));
   svgContainer.replaceChildren(example);
 }
 
@@ -105,6 +107,7 @@ function renderPreview() {
   currentSVG  = generateCardSVG(card);
   currentDeck = deck;
   svgContainer.innerHTML = currentSVG;
+  svgContainer.append(previewSizeNote.content.cloneNode(true));
   const tooWide = printProblem(currentSVG);
   downloadBtn.disabled = Boolean(tooWide);
   downloadBtn.title = tooWide || downloadTitle;
