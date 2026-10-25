@@ -106,12 +106,6 @@ Write line breaks as %0A, spaces as %20, % as %25, + as %2B, &amp; as %26, # as 
       <div class="preview-header">
         <span id="preview-label" class="preview-title">Preview</span>
         <div class="preview-actions">
-          <label for="preview-size">Preview size</label>
-          <select id="preview-size" aria-describedby="preview-size-description">
-            <option value="actual">Card size</option>
-            <option value="fit">Fit to browser</option>
-          </select>
-          <span id="preview-size-description" class="preview-size-description">Shows the guide at print scale. Each face is 64 × 89.4 mm (card size).</span>
           <button id="share-btn" class="btn btn-secondary" popovertarget="share-menu" disabled>Share guide…</button>
           <button id="download-btn" class="btn btn-primary" title="The guide at its real size, 64 × 89.4 mm per card. Print it on A4 or Letter paper at 100% scale." disabled>Download PDF</button>
         </div>
@@ -131,16 +125,20 @@ Write line breaks as %0A, spaces as %20, % as %25, + as %2B, &amp; as %26, # as 
 
       <div class="preview-canvas">
         <div id="preview-notices" class="preview-notices" aria-live="polite" hidden></div>
-        <div id="svg-container" class="svg-container" data-size="actual"></div>
+        <div id="svg-container" class="svg-container" tabindex="0" role="region" aria-label="Sideboard guide preview"></div>
       </div>
+
+      <template id="preview-size-note">
+        <p class="preview-size-description">Shown at print scale: each face is 64 × 89.4 mm (card size).<span class="mobile-scroll-hint"> Swipe the guide sideways to see all faces.</span></p>
+      </template>
 
       <template id="example-template">
         <div class="example">
           <div class="example-intro">
             <h2>This is what you'll get</h2>
-            <p>An example guide for a made-up Death and Taxes list. Link or paste your own sheet on the left and it replaces this preview.</p>
+            <p>An example guide for a made-up Death and Taxes list. Link or paste your own sheet <span class="desktop-location">on the left</span><span class="mobile-location">above</span> and it replaces this preview.</p>
           </div>
-          <div class="example-card"></div>
+          <div class="example-card" tabindex="0" role="region" aria-label="Example guide"></div>
           <ul class="example-notes">
             <li><b>Card size</b>: each half is card-sized, 64 × 89.4 mm, so it fits in a sleeve or deck box.</li>
             <li><b>Folding</b>: this guide has an empty column between Storm and Elves, so it prints as two halves. Fold along the dashed line. Guides with more matchups than fit at the chosen text size split on their own. Smaller ones fit on a single card.</li>

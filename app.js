@@ -14,9 +14,8 @@ const pasteSection  = document.getElementById('paste-section');
 const deckSelect  = document.getElementById('deck-select');
 const layoutSelect = document.getElementById('layout');
 const textSize    = document.getElementById('text-size');
-const previewSize = document.getElementById('preview-size');
-const previewSizeDescription = document.getElementById('preview-size-description');
 const svgContainer = document.getElementById('svg-container');
+const previewSizeNote = document.getElementById('preview-size-note');
 const downloadBtn = document.getElementById('download-btn');
 const downloadTitle = downloadBtn.title;
 const shareBtn    = document.getElementById('share-btn');
@@ -71,6 +70,7 @@ function showExample() {
   const example = document.getElementById('example-template').content.cloneNode(true);
   example.querySelector('.example-card').innerHTML =
     generateCardSVG(layoutCard('', buildPivot(parseData(EXAMPLE_SHEET), ''), cardOptions()));
+  example.querySelector('.example-card').after(previewSizeNote.content.cloneNode(true));
   svgContainer.replaceChildren(example);
 }
 
@@ -107,6 +107,7 @@ function renderPreview() {
   currentSVG  = generateCardSVG(card);
   currentDeck = deck;
   svgContainer.innerHTML = currentSVG;
+  svgContainer.append(previewSizeNote.content.cloneNode(true));
   const tooWide = printProblem(currentSVG);
   downloadBtn.disabled = Boolean(tooWide);
   downloadBtn.title = tooWide || downloadTitle;
@@ -275,18 +276,6 @@ const savedTextSize = [shared.get('size'), load('textSize')].find(Boolean);
 const preferredTextPt = (TEXT_SIZES_PT[savedTextSize] ?? Number(savedTextSize)) || Number(textSize.value);
 textSize.value = String(preferredTextPt);
 layoutSelect.value = [shared.get('names'), load('layout')].find(layout => LAYOUTS.includes(layout)) ?? layoutSelect.value;
-previewSize.value = ['actual', 'fit'].includes(load('previewSize')) ? load('previewSize') : 'actual';
-svgContainer.dataset.size = previewSize.value;
-const previewSizeDescriptions = {
-  actual: 'Shows the guide at print scale. Each face is 64 × 89.4 mm (card size).',
-  fit: 'Scales the guide to fit the available space.',
-};
-previewSizeDescription.textContent = previewSizeDescriptions[previewSize.value];
-previewSize.addEventListener('change', () => {
-  svgContainer.dataset.size = previewSize.value;
-  previewSizeDescription.textContent = previewSizeDescriptions[previewSize.value];
-  save('previewSize', previewSize.value);
-});
 for (const [select, key] of [[textSize, 'textSize'], [layoutSelect, 'layout']]) {
   select.addEventListener('change', () => {
     save(key, select.value);
@@ -365,3 +354,12 @@ convertPrompt.querySelector('.page-url').textContent = location.origin + locatio
 const source = pastedGuide !== null || (!sharedGuide && load('source') === 'paste') ? 'paste' : 'sheets';
 document.querySelector(`input[name="source"][value="${source}"]`).checked = true;
 applySource();
+
+// Keep help after the guide on mobile, and in the sidebar on desktop.
+const narrowScreen = window.matchMedia('(max-width: 800px)');
+const formatGuide = document.querySelector('.format-guide');
+function placeFormatGuide() {
+  document.querySelector(narrowScreen.matches ? '.app' : '.sidebar').append(formatGuide);
+}
+narrowScreen.addEventListener('change', placeFormatGuide);
+placeFormatGuide();
